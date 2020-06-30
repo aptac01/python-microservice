@@ -5,13 +5,13 @@ import os
 import time, datetime
 import logging
 from logging.handlers import RotatingFileHandler
-from flask import Flask, Response, jsonify, abort
+from flask import Flask, Response, jsonify, abort, Request
 from flask import make_response
 from flask import request
 from prometheus_client import generate_latest, REGISTRY, CONTENT_TYPE_LATEST
 from prometheus_flask_exporter.multiprocess import UWsgiPrometheusMetrics 
 from methods import pingPong, invalidParameters
-from methods import getPrometheusMetricLabels, method
+from methods import getPrometheusMetricLabels, method, parseError
 
 #--------------- flask      ---------------
 app = Flask(__name__)
@@ -80,17 +80,30 @@ def prometheus_metrics():
     
     return metricsResponse, 200, headers
 
+# если пришел некорректный json - в request будет то, что вернёт эта функция
+def on_json_loading_failed(self, e):
+    if e is not None:
+        return {'e':e,'on_json_loading_failed':1}
+    
+Request.on_json_loading_failed = on_json_loading_failed
+
 @app.route('/', methods=['POST'])
-def mainPacketHandler():
+def mainPacketHandler():  
     
     request_json = request.json
-    result_batch = []
+    result_batch = []    
     
     if type(request_json) != type([]) and type(request_json) == type({}):
         
         request_json = [request_json]
 
     for batch_elem in request_json:
+        
+        if 'e' in batch_elem\
+           and 'on_json_loading_failed' in batch_elem:
+            result_batch.append(parseError(None, str(batch_elem['e'])))
+            continue
+        
         if (not 'jsonrpc' in batch_elem 
             or batch_elem['jsonrpc'] != '2.0' 
             or not 'id' in batch_elem 

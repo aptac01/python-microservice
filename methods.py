@@ -79,6 +79,11 @@ def invalidParameters(request_id, data=None, args = None):
     e_msg = "Неверные параметры"
     return returnedError(request_id, e_code, e_msg, data, args)
 
+def parseError(request_id, data = None):
+    e_code = -32700
+    e_msg = "Parse error"
+    return returnedError(request_id, e_code, e_msg, data)
+
 # парсит текстовые (результирующие) метрики в dict, 
 # добавляет в каждую метрику тэг error, который равен false если status есть и 
 #   равен одному из (200, 308), или true если status есть и не равен одному из (200, 308), 
