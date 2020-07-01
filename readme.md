@@ -1,6 +1,6 @@
 # python-microservice
 
-Пример json-rpc сервиса на python-flask, с выгрузкой метрик в prometheus, 
+Пример json-rpc сервиса на python-flask и uwsgi, с выгрузкой метрик в prometheus, 
 регистрацией в консуле.
 
 python 3.7, другие версии не тестировал
