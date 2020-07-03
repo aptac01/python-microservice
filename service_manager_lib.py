@@ -12,16 +12,8 @@
   * сами отдельные скрипты (а это не временно)
 """
 
-import os
-import sys
-import uuid
-import socket
-import consul
-import requests
-from consul.base import Check
+# это надо убрать, а те места, где оно используется - переделать на своё логгирование
 import logging
-#todo разбить импорты по функциям, в которых они используются
-
 log = logging.getLogger(__name__)
 
 def isPortOpen(ip,port,timeout=3):
@@ -31,6 +23,9 @@ def isPortOpen(ip,port,timeout=3):
     timeout (int): максимум времени на попытку коненкта, в секундах
         если за это время ответа нет - считается что порт закрыт
     """
+    
+    import socket
+    
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(timeout)
     try:
@@ -46,6 +41,10 @@ def connectToConsul(consulAddress, consulPort):
     """
     Приконнектиться к консулу, или показать ошибку
     """
+    
+    import consul
+    from consul.base import Check
+    
     if (consulAddress is None) or (consulPort is None):
         log.error(f"No address or port, exiting doing nothing")
         return None    
@@ -189,10 +188,16 @@ def print_color():
     print(colored(255, 255, 0, "yellow text"))
     print(colored(255, 255, 255, "white text"))
     
-def sendRequest(method, params, url, request_id=str(uuid.uuid4())):
+def sendRequest(method, params, url, request_id=None):
     """
     Отправить запрос с указанными параметрами и вернуть ответ (или ошибку).
     """
+    
+    import requests
+    import uuid
+    
+    if request_id is None:
+        request_id = str(uuid.uuid4())
     
     try:
         requests.packages.urllib3.disable_warnings()
@@ -412,9 +417,7 @@ def test_api():
     #todo: формализовать выполнение тестов, а ввод самих тестов вынести в часть, относящуюся к сервису
 
     import os
-    import requests
-    import getpass
-    from service_manager_lib import checkService, sendRequest, myLogger
+    #from service_manager_lib import checkService, sendRequest, myLogger
 
     # переменные из конфига
     SERVICE_NAME_ENV = os.environ.get('SERVICE_NAME')

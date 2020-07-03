@@ -106,6 +106,13 @@ export_env_vars()
 
 }
 
+# проверяем, есть ли файл с конфигом, если нет - сообщаем об этом и тут же выходим
+if [ ! -f $config_filename ]
+then
+    log_msg "File $config_filename was not found, cannot continue"
+	return
+fi
+
 export config_filename
 
 # экспортируем конфиг в переменные среды
