@@ -2,6 +2,7 @@
 import os
 basedir = os.path.abspath(os.path.dirname(__file__))
 
+
 class Config(object):
     DEBUG = True
     TESTING = True
@@ -18,6 +19,7 @@ class Config(object):
     USING_AUTH = os.environ.get("USING_AUTH")
     CONSUL_NAME = os.environ.get("SERVICE_NAME")
     DB_NAME = os.environ.get("DB_NAME")
+
 
 class ProductionConfig(Config):
     DEBUG = False
