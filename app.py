@@ -8,6 +8,7 @@ from logging.handlers import RotatingFileHandler
 from flask import Flask, jsonify, abort, Request
 from flask import make_response
 from flask import request
+# noinspection PyProtectedMember
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from prometheus_flask_exporter.multiprocess import UWsgiPrometheusMetrics 
 from methods import ping_pong, invalid_parameters
@@ -44,11 +45,13 @@ app.logger.info(f'Startup timestamp: {now}')
 # --------------- app        ---------------
 
 
+# noinspection PyUnusedLocal
 @app.errorhandler(400)
 def incorrect_request(error):
     return make_response(jsonify({'error': 'An incorrect request format'}), 400)
 
 
+# noinspection PyUnusedLocal
 @app.errorhandler(404)
 def not_found(error):
     return make_response(jsonify({'error': 'Not found'}), 404)
@@ -64,6 +67,7 @@ def ping():
 @UWsgiPrometheusMetrics.do_not_track()
 def prometheus_metrics():
     
+    # noinspection PyProtectedMember
     from prometheus_client import multiprocess, CollectorRegistry
 
     registry = CollectorRegistry()
@@ -81,6 +85,7 @@ def prometheus_metrics():
     return metrics_response, 200, headers
 
 
+# noinspection PyUnusedLocal
 def on_json_loading_failed(self, e):
     """
     Вернуть специальную метку и описание возникшей ошибки в объекте запроса

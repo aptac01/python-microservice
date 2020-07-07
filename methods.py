@@ -4,7 +4,8 @@
 import json
 import glob
 import re
-import importlib  # он используется, чуть пониже
+# noinspection PyUnresolvedReferences
+import importlib
 from ast import literal_eval
 
 from flask import current_app as app
