@@ -17,7 +17,67 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def isPortOpen(ip, port, timeout=3):
+def log_msg(msg, file, newline=False):
+    """
+    Напечатать msg на экране и записать его в файл
+
+    Args:
+        msg (str): сообщение
+        file (stream): открытый и готовый для записи файл лога
+        newline (bool): при записи в файл добавлять в конец msg '\n'
+    """
+
+    print(msg)
+    if newline:
+        msg += '\n'
+    file.write(msg)
+
+
+class MyLogger:
+    """
+    Дублирует функционал метода log_msg, но с более интуитивно-понятным
+    интерфейсом
+    """
+
+    def __init__(self, file):
+        """
+        Инициализирует логгер, запоминая файл, куда пишутся логи
+        """
+        self.file = file
+
+    def log(self, msg, newline=False):
+        """
+        Напечатать msg на экране и записать его в файл
+
+        Args:
+            msg (str): сообщение
+            newline (bool): при записи в файл не добавлять в конец msg '\n'
+        """
+        print(msg)
+        if not newline:
+            msg += '\n'
+        self.file.write(msg)
+
+    @staticmethod
+    def colored(r, g, b, text):
+        """
+        Вернуть текст покрашенный в r, g и b
+        """
+        return f"\033[38;2;{r};{g};{b}m{text} \033[38;2;255;255;255m"
+
+    def print_color(self):
+        """
+        Небольшой снипет для дальнейшего ковыряния
+        todo: допилить эту штуку
+        """
+        print(self.colored(255, 0, 0, "red text"))
+        print(self.colored(0, 255, 0, "green text"))
+        print(self.colored(0, 0, 255, "blue text"))
+        print(self.colored(255, 255, 0, "yellow text"))
+        print(self.colored(255, 255, 255, "white text"))
+
+
+def is_port_open(ip, port, timeout=3):
     """
     Проверить, доступен ли удаленный адрес и порт для запроса.
    
@@ -40,35 +100,35 @@ def isPortOpen(ip, port, timeout=3):
         s.close()
 
 
-def connectToConsul(consulAddress, consulPort):
+def connect_to_consul(consul_address, consul_port):
     """
     Приконнектиться к консулу, или показать ошибку
     """
     
     import consul
     
-    if (consulAddress is None) or (consulPort is None):
+    if (consul_address is None) or (consul_port is None):
         log.error(f"No address or port, exiting doing nothing")
         return None    
     
-    if not(isPortOpen(consulAddress, consulPort)):
-        log.error(f"Error connecting consul on {consulAddress}:{consulPort}: address is not responding")
+    if not(is_port_open(consul_address, consul_port)):
+        log.error(f"Error connecting consul on {consul_address}:{consul_port}: address is not responding")
         return None        
     try:
-        c = consul.Consul(host=consulAddress, port=consulPort)
+        c = consul.Consul(host=consul_address, port=consul_port)
     except Exception as e:
-        log.error(f"Error connecting consul on {consulAddress}:{consulPort} : {e}")
+        log.error(f"Error connecting consul on {consul_address}:{consul_port} : {e}")
         return None
     
     return c
 
 
-def checkService(serviceId, consulAddress, consulPort):
+def check_service(service_id, consul_address, consul_port):
     """
     Проверить регистрацию сервиса в консуле
     """
     
-    c = connectToConsul(consulAddress, consulPort)
+    c = connect_to_consul(consul_address, consul_port)
     if c is None:
         return None
     
@@ -92,24 +152,24 @@ def checkService(serviceId, consulAddress, consulPort):
     if s_dict is None:
         return False
 
-    if serviceId in s_dict:
+    if service_id in s_dict:
         return True
     else:
         return False
 
 
-def registerService(service, consulAddress, consulPort):
+def register_service(service, consul_address, consul_port):
     """
     Зарегистрировать сервис в консуле
     """
 
     from consul.base import Check
 
-    c = connectToConsul(consulAddress, consulPort)
+    c = connect_to_consul(consul_address, consul_port)
     if c is None:
         return None
 
-    if checkService(service['id'], consulAddress, consulPort):
+    if check_service(service['id'], consul_address, consul_port):
         log.warning(f"Service <{service['id']}> already registered")
         return True
 
@@ -125,80 +185,19 @@ def registerService(service, consulAddress, consulPort):
     return result
 
 
-def deregisterService(serviceId, consulAddress, consulPort):
+def deregister_service(service_id, consul_address, consul_port):
     """
     Дерегистрировать сервис из консула
     """
     
-    c = connectToConsul(consulAddress, consulPort)
+    c = connect_to_consul(consul_address, consul_port)
     if c is None:
         return
 
-    c.agent.service.deregister(serviceId)
+    c.agent.service.deregister(service_id)
 
 
-def logMsg(msg, file, newline=False):
-    """
-    Напечатать msg на экране и записать его в файл
-    
-    Args:
-        msg (str): сообщение
-        file (stream): открытый и готовый для записи файл лога
-        newline (bool): при записи в файл добавлять в конец msg '\n'
-    """
-    
-    print(msg)
-    if newline:
-        msg += '\n'
-    file.write(msg)
-
-
-class myLogger:
-    """
-    Дублирует функционал метода logMsg, но с более интуитивно-понятным 
-    интерфейсом
-    """
-    
-    def __init__(self, file):
-        """ 
-        Инициализирует логгер, запоминая файл, куда пишутся логи
-        """
-        self.file = file
-        
-    def log(self, msg, newline=False):
-        """ 
-        Напечатать msg на экране и записать его в файл
-    
-        Args:
-            msg (str): сообщение
-            newline (bool): при записи в файл не добавлять в конец msg '\n'
-        """
-        print(msg)
-        if not newline:
-            msg += '\n'
-        self.file.write(msg)
-        
-
-def colored(r, g, b, text):
-    """
-    Вернуть текст покрашенный в r, g и b
-    """
-    return f"\033[38;2;{r};{g};{b}m{text} \033[38;2;255;255;255m"
-
-
-def print_color():
-    """
-    Небольшой снипет для дальнейшего ковыряния
-    todo: допилить эту штуку
-    """
-    print(colored(255, 0, 0, "red text"))
-    print(colored(0, 255, 0, "green text"))
-    print(colored(0, 0, 255, "blue text"))
-    print(colored(255, 255, 0, "yellow text"))
-    print(colored(255, 255, 255, "white text"))
-
-
-def sendRequest(method, params, url, request_id=None):
+def send_request(method, params, url, request_id=None):
     """
     Отправить запрос с указанными параметрами и вернуть ответ (или ошибку).
     """
@@ -239,10 +238,15 @@ def sendRequest(method, params, url, request_id=None):
     return r_result
 
 
+# Всё что ниже - функции-скрипты, "api" для service_manager2.sh, те штуки, которые нужны в оболочке сервиса, но мне
+# лениво их реализовывать на shell-script
+
+
 # noinspection PyPep8Naming
 def execute_relog(relog_fl):
     """ 
     Минифицировать и отсортировать логи сервиса (первичные), вывести отчет о проделанной работе
+    Функция-скрипт
     """
 
     import os
@@ -254,7 +258,7 @@ def execute_relog(relog_fl):
 
     nohupFile = os.environ.get('nohup_out_log')
     nFile = open(nohupFile, 'a+')
-    logger_for_relog = myLogger(nFile)
+    logger_for_relog = MyLogger(nFile)
 
     REFLOG_FILES_ENV = os.environ.get('RELOG_FILES')
 
@@ -270,7 +274,8 @@ def execute_relog(relog_fl):
         r'(\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}\]) INFO in app: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}: (user:-*\d{1,} ){0,}remote address: \d{1,3}.\d{1,3}.\d{1,3}.\d{1,3} real IP: \d{1,3}.\d{1,3}.\d{1,3}.\d{1,3} method: [\w.]{1,}',
         r'(\[\d{4}:\d{2}:\d{2}\d{2}:\d{2}:\d{2}\]) - .{5,}',
         r'(\w{3}\s{1,}\w{3}\s{1,}\d{1,3}\s{1,}\d{2}:\d{2}:\d{2} \d{4}) - logsize: \d{1,10}, triggering rotation to [\w\/.]{1,}',
-        r'(\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}\]) INFO in app: Start app at [-\d\s:.]{1,}'
+        r'(\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}\]) INFO in app: Start app at [-\d\s:.]{1,}',
+        r'(\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}\]) INFO in app: Startup timestamp: [-\d\s:.]{1,}',
     ]
     ERROR_WARNING_ROWS = [
         r'\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}\] ERROR in (methods|app):.{1,}'
@@ -421,10 +426,11 @@ def execute_relog(relog_fl):
     nFile.close()
 
 
-# noinspection PyPep8Naming
+# noinspection PyPep8Naming,DuplicatedCode
 def test_api():
     """
     Проводит заданные тесты, выводит результаты на экран и в лог-файл
+    Функция-скрипт
     """
 
     # todo: формализовать выполнение тестов, а ввод самих тестов вынести в часть, относящуюся к сервису
@@ -434,10 +440,8 @@ def test_api():
     # переменные из конфига
     SERVICE_NAME_ENV = os.environ.get('SERVICE_NAME')
     SERVICE_ID_ENV = os.environ.get('SERVICE_ID')
-
     CONSUL_ADDRESS_ENV = os.environ.get('CONSUL_ADDRESS')
     CONSUL_PORT_ENV = int(os.environ.get('CONSUL_PORT'))
-
     SERVER_ADDRESS_ENV = os.environ.get('SERVER_ADDRESS')
     SERVER_PORT_ENV = int(os.environ.get('SERVER_PORT'))
 
@@ -445,8 +449,8 @@ def test_api():
 
     nohupFile = os.environ.get('nohup_out_log')
     nFile = open(nohupFile, "a+")
-    logger_for_tests = myLogger(nFile)
-    configFile = os.environ.get('config_filename')
+    logger_for_tests = MyLogger(nFile)
+    # configFile = os.environ.get('config_filename')
 
     # проверка в консуле, определение окружения
     # noinspection PyDictCreation
@@ -459,7 +463,7 @@ def test_api():
     service['checkAddress'] = f'http://{service["ip"]}:{service["port"]}/ping'
     service['checkInterval'] = '10s'
 
-    res_consul = checkService(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)
+    res_consul = check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)
     if res_consul:
         res_consul = 'true'
         service_url = f'http://{service["ip"]}:{service["port"]}/'
@@ -476,10 +480,10 @@ def test_api():
     # -----
     method = 'pingpong'
     params = {'marco': 'polo'}
-    result = sendRequest(method, params, service_url)
+    result = send_request(method, params, service_url)
     exp_res = {'polo': 'marco'}
     testResult = result[0]['result'] == exp_res
-    cc = colored(255, 0, 0, "red text")
+    # cc = colored(255, 0, 0, "red text")
 
     logger_for_tests.log(f'+++++\n\
     {method} \n\
@@ -493,7 +497,7 @@ def test_api():
     # -----
     method = 'pingpong'
     params = {'ping': 'pong'}
-    result = sendRequest(method, params, service_url)
+    result = send_request(method, params, service_url)
     exp_res = {'pong': 'ping'}
 
     logger_for_tests.log(f'+++++\n\
@@ -507,10 +511,11 @@ def test_api():
     nFile.close() 
 
 
-# noinspection PyPep8Naming
+# noinspection PyPep8Naming,DuplicatedCode
 def register_in_consul():
     """
     Регистрирует сервис в консуле, или выводит ошибку
+    Функция-скрипт
     """
 
     import os
@@ -519,16 +524,14 @@ def register_in_consul():
 
     SERVICE_NAME_ENV = os.environ.get('SERVICE_NAME')
     SERVICE_ID_ENV = os.environ.get('SERVICE_ID')
-
     CONSUL_ADDRESS_ENV = os.environ.get('CONSUL_ADDRESS')
     CONSUL_PORT_ENV = int(os.environ.get('CONSUL_PORT'))
-
     SERVER_ADDRESS_ENV = os.environ.get('SERVER_ADDRESS')
     SERVER_PORT_ENV = int(os.environ.get('SERVER_PORT'))
 
     nohupFile = os.environ.get('nohup_out_log')
     nFile = open(nohupFile, "a+")
-    log_for_consulreg = myLogger(nFile)
+    log_for_consulreg = MyLogger(nFile)
     configFile = os.environ.get('config_filename')
 
     # noinspection PyDictCreation
@@ -547,15 +550,15 @@ def register_in_consul():
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
 {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV}.')
 
-    if not(checkService(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)):
+    if not(check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)):
         
         log_for_consulreg.log(f'{SERVICE_NAME_ENV} is not registered on \
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
 {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV}, trying to register it.')
         
-        registerService(service, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)
+        register_service(service, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)
         
-        if checkService(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV):
+        if check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV):
         
             # всё ок, регистрация успешна
             log_for_consulreg.log(f'{SERVICE_NAME_ENV} registered on \
@@ -578,10 +581,11 @@ def register_in_consul():
     nFile.close()
 
 
-# noinspection PyPep8Naming
+# noinspection PyPep8Naming,DuplicatedCode
 def deregister_in_consul():
     """
     Дерегистрирует сервис в консуле, или выводит ошибку
+    Функция-скрипт
     """
 
     import os
@@ -590,27 +594,25 @@ def deregister_in_consul():
 
     SERVICE_NAME_ENV = os.environ.get('SERVICE_NAME')
     SERVICE_ID_ENV = os.environ.get('SERVICE_ID')
-
     CONSUL_ADDRESS_ENV = os.environ.get('CONSUL_ADDRESS')
     CONSUL_PORT_ENV = int(os.environ.get('CONSUL_PORT'))
-
     SERVER_ADDRESS_ENV = os.environ.get('SERVER_ADDRESS')
     SERVER_PORT_ENV = int(os.environ.get('SERVER_PORT'))
 
     nohupFile = os.environ.get('nohup_out_log')
     nFile = open(nohupFile, "a+")
-    log_for_consuldereg = myLogger(nFile)
+    log_for_consuldereg = MyLogger(nFile)
 
     # начинаем дерегистрацию
-    if checkService(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV):
+    if check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV):
         
         log_for_consuldereg.log(f'{SERVICE_NAME_ENV} registered on \
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
 {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV}, trying to deregister it.')
+
+        deregister_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)
         
-        deregisterService(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)
-        
-        if not(checkService(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)):
+        if not(check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)):
             
             # дерегистрировали, всё ок
             log_for_consuldereg.log(f'{SERVICE_NAME_ENV} deregistered on \
@@ -637,23 +639,23 @@ def deregister_in_consul():
 def check_consul_reg():
     """
     Проверяет, зарегистрирован ли сервис, указанный в конфиге в консуле
+    Функция-скрипт
     """
 
     import os
     import sys
 
-    SERVICE_NAME_ENV = os.environ.get('SERVICE_NAME')
+    # SERVICE_NAME_ENV = os.environ.get('SERVICE_NAME')
     SERVICE_ID_ENV = os.environ.get('SERVICE_ID')
-
     CONSUL_ADDRESS_ENV = os.environ.get('CONSUL_ADDRESS')
     CONSUL_PORT_ENV = int(os.environ.get('CONSUL_PORT'))
+    # SERVER_ADDRESS_ENV = os.environ.get('SERVER_ADDRESS')
+    # SERVER_PORT_ENV = int(os.environ.get('SERVER_PORT'))
 
-    SERVER_ADDRESS_ENV = os.environ.get('SERVER_ADDRESS')
-    SERVER_PORT_ENV = int(os.environ.get('SERVER_PORT'))
-
+    # noinspection PyBroadException
     try:
-        check = checkService(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)
-    except:
+        check = check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)
+    except Exception:
         check = False
 
     if check:
@@ -668,6 +670,7 @@ def check_consul_reg():
 def create_temp_dirs():
     """
     Создать временные папки необходимые для функционирования сервиса
+    Функция-скрипт
     """
     import os
     from pathlib import Path
