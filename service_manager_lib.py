@@ -12,31 +12,11 @@
   * сами отдельные скрипты (а это не временно)
 """
 
-# это надо убрать, а те места, где оно используется - переделать на своё логгирование
-import logging
-log = logging.getLogger(__name__)
-
-
-def log_msg(msg, file, newline=False):
-    """
-    Напечатать msg на экране и записать его в файл
-
-    Args:
-        msg (str): сообщение
-        file (stream): открытый и готовый для записи файл лога
-        newline (bool): при записи в файл добавлять в конец msg '\n'
-    """
-
-    print(msg)
-    if newline:
-        msg += '\n'
-    file.write(msg)
-
 
 class MyLogger:
     """
-    Дублирует функционал метода log_msg, но с более интуитивно-понятным
-    интерфейсом
+    Обычный логгер, показывает сообщения на экране и пишет их в файл.
+    Здесь еще будут изменения
     """
 
     def __init__(self, file):
@@ -100,7 +80,7 @@ def is_port_open(ip, port, timeout=3):
         s.close()
 
 
-def connect_to_consul(consul_address, consul_port):
+def connect_to_consul(consul_address, consul_port, logger):
     """
     Приконнектиться к консулу, или показать ошибку
     """
@@ -108,27 +88,27 @@ def connect_to_consul(consul_address, consul_port):
     import consul
     
     if (consul_address is None) or (consul_port is None):
-        log.error(f"No address or port, exiting doing nothing")
+        logger.log(f"No address or port, exiting doing nothing")
         return None    
     
     if not(is_port_open(consul_address, consul_port)):
-        log.error(f"Error connecting consul on {consul_address}:{consul_port}: address is not responding")
+        logger.log(f"Error connecting consul on {consul_address}:{consul_port}: address is not responding")
         return None        
     try:
         c = consul.Consul(host=consul_address, port=consul_port)
     except Exception as e:
-        log.error(f"Error connecting consul on {consul_address}:{consul_port} : {e}")
+        logger.log(f"Error connecting consul on {consul_address}:{consul_port} : {e}")
         return None
     
     return c
 
 
-def check_service(service_id, consul_address, consul_port):
+def check_service(service_id, consul_address, consul_port, logger):
     """
     Проверить регистрацию сервиса в консуле
     """
     
-    c = connect_to_consul(consul_address, consul_port)
+    c = connect_to_consul(consul_address, consul_port, logger)
     if c is None:
         return None
     
@@ -158,19 +138,19 @@ def check_service(service_id, consul_address, consul_port):
         return False
 
 
-def register_service(service, consul_address, consul_port):
+def register_service(service, consul_address, consul_port, logger):
     """
     Зарегистрировать сервис в консуле
     """
 
     from consul.base import Check
 
-    c = connect_to_consul(consul_address, consul_port)
+    c = connect_to_consul(consul_address, consul_port, logger)
     if c is None:
         return None
 
-    if check_service(service['id'], consul_address, consul_port):
-        log.warning(f"Service <{service['id']}> already registered")
+    if check_service(service['id'], consul_address, consul_port, logger):
+        logger.log(f"Service <{service['id']}> already registered")
         return True
 
     result = c.agent.service.register(
@@ -185,19 +165,19 @@ def register_service(service, consul_address, consul_port):
     return result
 
 
-def deregister_service(service_id, consul_address, consul_port):
+def deregister_service(service_id, consul_address, consul_port, logger):
     """
     Дерегистрировать сервис из консула
     """
     
-    c = connect_to_consul(consul_address, consul_port)
+    c = connect_to_consul(consul_address, consul_port, logger)
     if c is None:
         return
 
     c.agent.service.deregister(service_id)
 
 
-def send_request(method, params, url, request_id=None):
+def send_request(method, params, url, logger, request_id=None):
     """
     Отправить запрос с указанными параметрами и вернуть ответ (или ошибку).
     """
@@ -228,7 +208,7 @@ def send_request(method, params, url, request_id=None):
 
     except Exception as e:
         
-        log.error(f"Request error: {e}")
+        logger.log(f"Request error: {e}")
         return [{"error": {
             "code": 123, 
             "message": f"Request error: {e}", 
@@ -463,7 +443,7 @@ def test_api():
     service['checkAddress'] = f'http://{service["ip"]}:{service["port"]}/ping'
     service['checkInterval'] = '10s'
 
-    res_consul = check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)
+    res_consul = check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, logger_for_tests)
     if res_consul:
         res_consul = 'true'
         service_url = f'http://{service["ip"]}:{service["port"]}/'
@@ -480,7 +460,7 @@ def test_api():
     # -----
     method = 'pingpong'
     params = {'marco': 'polo'}
-    result = send_request(method, params, service_url)
+    result = send_request(method, params, service_url, logger_for_tests)
     exp_res = {'polo': 'marco'}
     testResult = result[0]['result'] == exp_res
     # cc = colored(255, 0, 0, "red text")
@@ -497,7 +477,7 @@ def test_api():
     # -----
     method = 'pingpong'
     params = {'ping': 'pong'}
-    result = send_request(method, params, service_url)
+    result = send_request(method, params, service_url, logger_for_tests)
     exp_res = {'pong': 'ping'}
 
     logger_for_tests.log(f'+++++\n\
@@ -550,15 +530,15 @@ def register_in_consul():
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
 {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV}.')
 
-    if not(check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)):
+    if not(check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consulreg)):
         
         log_for_consulreg.log(f'{SERVICE_NAME_ENV} is not registered on \
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
 {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV}, trying to register it.')
         
-        register_service(service, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)
+        register_service(service, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consulreg)
         
-        if check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV):
+        if check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consulreg):
         
             # всё ок, регистрация успешна
             log_for_consulreg.log(f'{SERVICE_NAME_ENV} registered on \
@@ -604,15 +584,15 @@ def deregister_in_consul():
     log_for_consuldereg = MyLogger(nFile)
 
     # начинаем дерегистрацию
-    if check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV):
+    if check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consuldereg):
         
         log_for_consuldereg.log(f'{SERVICE_NAME_ENV} registered on \
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
 {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV}, trying to deregister it.')
 
-        deregister_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)
+        deregister_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consuldereg)
         
-        if not(check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)):
+        if not(check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consuldereg)):
             
             # дерегистрировали, всё ок
             log_for_consuldereg.log(f'{SERVICE_NAME_ENV} deregistered on \
@@ -652,9 +632,13 @@ def check_consul_reg():
     # SERVER_ADDRESS_ENV = os.environ.get('SERVER_ADDRESS')
     # SERVER_PORT_ENV = int(os.environ.get('SERVER_PORT'))
 
+    nohupFile = os.environ.get('nohup_out_log')
+    nFile = open(nohupFile, "a+")
+    log_for_consulcheck = MyLogger(nFile)
+
     # noinspection PyBroadException
     try:
-        check = check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV)
+        check = check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consulcheck)
     except Exception:
         check = False
 
