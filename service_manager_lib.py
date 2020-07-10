@@ -256,6 +256,7 @@ def execute_relog(relog_fl):
         r'(\w{3}\s{1,}\w{3}\s{1,}\d{1,3}\s{1,}\d{2}:\d{2}:\d{2} \d{4}) - logsize: \d{1,10}, triggering rotation to [\w\/.]{1,}',
         r'(\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}\]) INFO in app: Start app at [-\d\s:.]{1,}',
         r'(\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}\]) INFO in app: Startup timestamp: [-\d\s:.]{1,}',
+        r'\[uWSGI\]() getting INI configuration from [/a-zA-Zа-яА-Я0-9_\.]{1,}',
     ]
     ERROR_WARNING_ROWS = [
         r'\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}\] ERROR in (methods|app):.{1,}'
@@ -288,9 +289,6 @@ def execute_relog(relog_fl):
         internal_errors_log.close()
         os.remove(internal_errors_log.name)
         internal_errors_log = open('relog/internal_errors.log', 'a+')
-
-    # todo:
-    # warning in app invalid token - добавить в internal errors
 
     logger_for_relog.log(f'logs_to_proccess = {logs_to_proccess}')
 
