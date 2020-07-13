@@ -24,37 +24,88 @@ class MyLogger:
         Инициализирует логгер, запоминая файл, куда пишутся логи
         """
         self.file = file
+        self.FOREGROUND = {
+             'Black':         30,
+             'Red':           31,
+             'Green':         32,
+             'Yellow':        33,
+             'Blue':          34,
+             'Magenta':       35,
+             'Cyan':          36,
+             'Light gray':    37,
+             'Dark gray':     90,
+             'Light red':     91,
+             'Light green':   92,
+             'Light yellow':  93,
+             'Light blue':    94,
+             'Light magenta': 95,
+             'Light cyan':    96,
+             'White':         97,
+        }
+        self.BACKGROUND = {
+            'Black':          40,
+            'Red':            41,
+            'Green':          42,
+            'Yellow':         43,
+            'Blue':           44,
+            'Magenta':        45,
+            'Cyan':           46,
+            'Light gray':     47,
+            'Dark gray':      100,
+            'Light red':      101,
+            'Light green':    102,
+            'Light yellow':   103,
+            'Light blue':     104,
+            'Light magenta':  105,
+            'Light cyan':     106,
+            'White':          107,
+        }
 
-    def log(self, msg, newline=False):
+    def log(self, msg, options=None):
         """
         Напечатать msg на экране и записать его в файл
 
         Args:
             msg (str): сообщение
-            newline (bool): при записи в файл не добавлять в конец msg '\n'
+            options (dict): массив опций для настройки сообщения
+                newline (bool): при записи в файл не добавлять в конец msg '\n'
+                color_pieces (list): массив покрашенных строк
+                    color_front (str): цвет текста (см. self.FOREGROUND)
+                    color_back (str): цвет фона (см. self.BACKGROUND)
+                    colored_text (str): кусочек текста, который нужно покрасить, regex(соотв., префикс r)
         """
+        # todo: добавить использование COLOR_LOGS_SCREEN и COLOR_LOGS_FILES
+        if False:
+            import re
+
+            options_default = {
+                'newline':      False,
+                'color_pieces': [],
+            }
+            color_piece_default = {
+                'color_front': False,
+                'color_back': False,
+                'colored_text': False,
+            }
+            if options is None:
+                options = options_default
+            else:
+                options = {**options_default, **options}
+
+            color_pieces_local = []
+
+            if options.get('color_pieces', None) is not None:
+                for color_piece in options['color_pieces']:
+                    color_pieces_local.append({**color_piece_default, **color_piece})
+                    # todo добавить валидацию цветов относительно доступных значений
+
+            for piece in color_pieces_local:
+                re.sub(piece['colored_text'], r'\033[_код_цвета_m текст \033[_код_дефолтного_цвета_m', msg)
+
         print(msg)
-        if not newline:
+        if not options['newline']:
             msg += '\n'
         self.file.write(msg)
-
-    @staticmethod
-    def colored(r, g, b, text):
-        """
-        Вернуть текст покрашенный в r, g и b
-        """
-        return f"\033[38;2;{r};{g};{b}m{text} \033[38;2;255;255;255m"
-
-    def print_color(self):
-        """
-        Небольшой снипет для дальнейшего ковыряния
-        todo: допилить эту штуку
-        """
-        print(self.colored(255, 0, 0, "red text"))
-        print(self.colored(0, 255, 0, "green text"))
-        print(self.colored(0, 0, 255, "blue text"))
-        print(self.colored(255, 255, 0, "yellow text"))
-        print(self.colored(255, 255, 255, "white text"))
 
 
 def is_port_open(ip, port, timeout=3):
