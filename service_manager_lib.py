@@ -25,57 +25,75 @@ class MyLogger:
         """
         self.file = file
         self.FOREGROUND = {
-             'Black':         30,
-             'Red':           31,
-             'Green':         32,
-             'Yellow':        33,
-             'Blue':          34,
-             'Magenta':       35,
-             'Cyan':          36,
-             'Light gray':    37,
-             'Dark gray':     90,
-             'Light red':     91,
-             'Light green':   92,
-             'Light yellow':  93,
-             'Light blue':    94,
-             'Light magenta': 95,
-             'Light cyan':    96,
-             'White':         97,
+             'black':         30,
+             'red':           31,
+             'green':         32,
+             'yellow':        33,
+             'blue':          34,
+             'magenta':       35,
+             'cyan':          36,
+             'light gray':    37,
+             'dark gray':     90,
+             'light red':     91,
+             'light green':   92,
+             'light yellow':  93,
+             'light blue':    94,
+             'light magenta': 95,
+             'light cyan':    96,
+             'white':         97,
         }
         self.BACKGROUND = {
-            'Black':          40,
-            'Red':            41,
-            'Green':          42,
-            'Yellow':         43,
-            'Blue':           44,
-            'Magenta':        45,
-            'Cyan':           46,
-            'Light gray':     47,
-            'Dark gray':      100,
-            'Light red':      101,
-            'Light green':    102,
-            'Light yellow':   103,
-            'Light blue':     104,
-            'Light magenta':  105,
-            'Light cyan':     106,
-            'White':          107,
+            'black':          40,
+            'red':            41,
+            'green':          42,
+            'yellow':         43,
+            'blue':           44,
+            'magenta':        45,
+            'cyan':           46,
+            'light gray':     47,
+            'dark gray':      100,
+            'light red':      101,
+            'light green':    102,
+            'light yellow':   103,
+            'light blue':     104,
+            'light magenta':  105,
+            'light cyan':     106,
+            'white':          107,
         }
 
+    # noinspection PyPep8Naming
     def log(self, msg, options=None):
         """
-        Напечатать msg на экране и записать его в файл
+        Напечатать msg на экране и записать его в файл. Опционально, текст можно раскрасить.
 
         Args:
             msg (str): сообщение
             options (dict): массив опций для настройки сообщения
-                newline (bool): при записи в файл не добавлять в конец msg '\n'
+                newline (bool): при записи в файл не добавлять '\n' в конец msg
                 color_pieces (list): массив покрашенных строк
+                        Если цвет не из разрешенного множества - этот цвет не будет применён.
+                        Если colored_text не найден в msg - ничего не делаем
                     color_front (str): цвет текста (см. self.FOREGROUND)
                     color_back (str): цвет фона (см. self.BACKGROUND)
-                    colored_text (str): кусочек текста, который нужно покрасить, regex(соотв., префикс r)
+                    colored_text (str): кусочек текста, который нужно покрасить, regex
         """
-        # todo: добавить использование COLOR_LOGS_SCREEN и COLOR_LOGS_FILES
-        if False:
+        import os
+
+        COLOR_LOGS_SCREEN = os.environ.get('COLOR_LOGS_SCREEN')
+        if COLOR_LOGS_SCREEN in ('0', 0, False, 'false', 'False'):
+            COLOR_LOGS_SCREEN = False
+        else:
+            COLOR_LOGS_SCREEN = True
+
+        COLOR_LOGS_FILES = os.environ.get('COLOR_LOGS_FILES')
+        if COLOR_LOGS_FILES in ('0', 0, False, 'false', 'False'):
+            COLOR_LOGS_FILES = False
+        else:
+            COLOR_LOGS_FILES = True
+
+        colored_msg = None
+
+        if COLOR_LOGS_SCREEN:
             import re
 
             options_default = {
@@ -85,7 +103,7 @@ class MyLogger:
             color_piece_default = {
                 'color_front': False,
                 'color_back': False,
-                'colored_text': False,
+                'colored_text': '',
             }
             if options is None:
                 options = options_default
@@ -94,18 +112,56 @@ class MyLogger:
 
             color_pieces_local = []
 
-            if options.get('color_pieces', None) is not None:
+            if options.get('color_pieces', []):
+                allowed_colors = list(self.FOREGROUND.keys()) + [False]
                 for color_piece in options['color_pieces']:
-                    color_pieces_local.append({**color_piece_default, **color_piece})
-                    # todo добавить валидацию цветов относительно доступных значений
+                    merged_color_piece = {**color_piece_default, **color_piece}
 
+                    if merged_color_piece['color_front'] not in allowed_colors:
+                        merged_color_piece['color_front'] = False
+
+                    if merged_color_piece['color_back'] not in allowed_colors:
+                        merged_color_piece['color_back'] = False
+
+                    color_pieces_local.append(merged_color_piece)
+
+            colored_msg = msg
             for piece in color_pieces_local:
-                re.sub(piece['colored_text'], r'\033[_код_цвета_m текст \033[_код_дефолтного_цвета_m', msg)
 
-        print(msg)
+                # noinspection PyTypeChecker
+                resolved_string = re.findall(piece['colored_text'], colored_msg)
+
+                if len(resolved_string) > 0:
+                    resolved_string = resolved_string[0]
+
+                    if piece["color_back"]:
+                        # noinspection PyTypeChecker
+                        colored_msg = re.sub(piece['colored_text'], '\033[' + str(
+                            self.BACKGROUND[piece["color_back"]]) + 'm' + resolved_string + '\033[49m', colored_msg)
+                    else:
+                        colored_msg = colored_msg
+
+                    if piece["color_front"]:
+                        # noinspection PyTypeChecker
+                        colored_msg = re.sub(piece['colored_text'], '\033[' + str(
+                            self.FOREGROUND[piece["color_front"]]) + 'm' + resolved_string + '\033[39m', colored_msg)
+                    else:
+                        colored_msg = colored_msg
+
+
+
+        if COLOR_LOGS_SCREEN and colored_msg:
+            print(colored_msg)
+        else:
+            print(msg)
+
         if not options['newline']:
             msg += '\n'
-        self.file.write(msg)
+
+        if COLOR_LOGS_FILES and colored_msg:
+            self.file.write(colored_msg)
+        else:
+            self.file.write(msg)
 
 
 def is_port_open(ip, port, timeout=3):
@@ -479,6 +535,8 @@ def test_api():
     nohupFile = os.environ.get('nohup_out_log')
     nFile = open(nohupFile, "a+")
     logger_for_tests = MyLogger(nFile)
+    color_scheme_green = {'color_pieces': [{'color_back': 'light green', 'colored_text': r'was it successful.:.{1,}'}]}
+    color_scheme_red = {'color_pieces': [{'color_back': 'light red', 'colored_text': r'was it successful.:.{1,}'}]}
     # configFile = os.environ.get('config_filename')
 
     # проверка в консуле, определение окружения
@@ -512,14 +570,17 @@ def test_api():
     result = send_request(method, params, service_url, logger_for_tests)
     exp_res = {'polo': 'marco'}
     testResult = result[0]['result'] == exp_res
-    # cc = colored(255, 0, 0, "red text")
+    if testResult:
+        color_scheme = color_scheme_green
+    else:
+        color_scheme = color_scheme_red
 
     logger_for_tests.log(f'+++++\n\
     {method} \n\
     request :{params}\n\
     result  :{result[0]["result"]}\n\
     expected:{exp_res}\n\
-    was it succesesfull?: {testResult}')
+    was it successful?: {testResult}', color_scheme)
 
     # =====
 
@@ -534,7 +595,28 @@ def test_api():
     request :{params}\n\
     result  :{result[0]["result"]}\n\
     expected:{exp_res}\n\
-    was it succesesfull?: {testResult}')
+    was it successful?: {testResult}', color_scheme)
+    # =====
+
+    # -----
+    method = 'pingpong'
+    params = {'marco': 'polo'}
+    result = send_request(method, params, service_url, logger_for_tests)
+    exp_res = {'polo': 'marco'}
+    testResult = result[0]['result'] != exp_res
+    if testResult:
+        color_scheme = color_scheme_green
+    else:
+        color_scheme = color_scheme_red
+
+    logger_for_tests.log(f'+++++\n\
+    {method} \n\
+    request :{params}\n\
+    result  :{result[0]["result"]}\n\
+    expected:{exp_res}\n\
+    this test is not successful intentionally\n\
+    was it successful?: {testResult}', color_scheme)
+
     # =====
         
     nFile.close() 
