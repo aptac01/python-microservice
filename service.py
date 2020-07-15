@@ -60,4 +60,3 @@ else:
 nohup_logger.log('321   dffddf ', color_scheme_service)
 nohup_logger.log('000 fgfd', color_scheme_service)
 nohup_logger.log('================= Service managing operation finish ================')
-
