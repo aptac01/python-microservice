@@ -69,7 +69,7 @@ class MyLogger:
         Args:
             msg (str): сообщение
             options (dict): массив опций для настройки сообщения
-                newline (bool): при записи в файл не добавлять '\n' в конец msg
+                newline (bool): при записи в файл не добавлять '\n' в конец msg, по умолчанию - false
                 color_pieces (list): массив покрашенных строк
                         Если цвет не из разрешенного множества - этот цвет не будет применён.
                         Если colored_text не найден в msg - ничего не делаем
@@ -91,24 +91,24 @@ class MyLogger:
         else:
             COLOR_LOGS_FILES = True
 
+        options_default = {
+            'newline': False,
+            'color_pieces': [],
+        }
+        color_piece_default = {
+            'color_front': False,
+            'color_back': False,
+            'colored_text': '',
+        }
+        if options is None:
+            options = options_default
+        else:
+            options = {**options_default, **options}
+
         colored_msg = None
 
         if COLOR_LOGS_SCREEN:
             import re
-
-            options_default = {
-                'newline':      False,
-                'color_pieces': [],
-            }
-            color_piece_default = {
-                'color_front': False,
-                'color_back': False,
-                'colored_text': '',
-            }
-            if options is None:
-                options = options_default
-            else:
-                options = {**options_default, **options}
 
             color_pieces_local = []
 
@@ -148,20 +148,19 @@ class MyLogger:
                     else:
                         colored_msg = colored_msg
 
-
-
         if COLOR_LOGS_SCREEN and colored_msg:
             print(colored_msg)
         else:
             print(msg)
 
+        msg_ending = ''
         if not options['newline']:
-            msg += '\n'
+            msg_ending = '\n'
 
         if COLOR_LOGS_FILES and colored_msg:
-            self.file.write(colored_msg)
+            self.file.write(colored_msg + msg_ending)
         else:
-            self.file.write(msg)
+            self.file.write(msg + msg_ending)
 
 
 def is_port_open(ip, port, timeout=3):
