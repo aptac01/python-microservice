@@ -1,9 +1,17 @@
 # coding: utf-8
+
+"""
+Конфиг для flask, скорее всего, без него совсем не получится
+"""
+
 import os
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 
 class Config(object):
+    """
+    Конфиг
+    """
     DEBUG = True
     TESTING = True
     CSRF_ENABLED = True
@@ -22,18 +30,30 @@ class Config(object):
 
 
 class ProductionConfig(Config):
+    """
+    Конфиг для продакшена
+    """
     DEBUG = False
 
 
 class StagingConfig(Config):
+    """
+    Конфиг для "предпремьерного показа"
+    """
     DEVELOPMENT = True
     DEBUG = True
 
 
 class DevelopmentConfig(Config):
+    """
+    Конфиг для разработки
+    """
     DEVELOPMENT = True
     DEBUG = True
 
 
 class TestingConfig(Config):
+    """
+    Конфиг для теста
+    """
     TESTING = True

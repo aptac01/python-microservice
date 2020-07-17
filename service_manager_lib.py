@@ -99,6 +99,7 @@ class MyLogger:
             'color_front': False,
             'color_back': False,
             'colored_text': '',
+            'color_specific_group': False,
         }
         if options is None:
             options = options_default
@@ -127,6 +128,9 @@ class MyLogger:
 
             colored_msg = msg
             for piece in color_pieces_local:
+
+                if piece['colored_text'] == '':
+                    continue
 
                 # noinspection PyTypeChecker
                 resolved_string = re.findall(piece['colored_text'], colored_msg)
@@ -283,7 +287,7 @@ def deregister_service(service_id, consul_address, consul_port, logger):
     c.agent.service.deregister(service_id)
 
 
-def send_request(method, params, url, logger, request_id=None):
+def send_request(method_name, params, url, logger, request_id=None):
     """
     Отправить запрос с указанными параметрами и вернуть ответ (или ошибку).
     """
@@ -301,7 +305,7 @@ def send_request(method, params, url, logger, request_id=None):
                                 headers={"Content-Type": "application/json"},
                                 json={"jsonrpc": "2.0",
                                       "id": request_id,
-                                      "method": method,
+                                      "method": method_name,
                                       "params": params},
                                 verify=False)
         if request.ok:
@@ -324,8 +328,84 @@ def send_request(method, params, url, logger, request_id=None):
     return r_result
 
 
+def get_prometheus_metric_labels(text_metrics):
+    """
+    Обработать метрики для prometheus.
+    Спарсить текстовые (результирующие) метрики в dict,
+    добавить в каждую метрику тэг error, который равен false если status есть и
+        равен одному из (200, 308), или true если status есть и не равен одному из (200, 308),
+    запаковывать dict обратно "как было"
+    """
+    from ast import literal_eval
+    import re
+
+    for input_to_parse in text_metrics.split(b'\n'):
+        input_to_parse = str(input_to_parse)
+        match = re.search(r'{.+}', input_to_parse)
+        # отсеяли ненужные строки, оставили только метрики
+        if match is not None:
+            # взяли только ту часть, которая в {} таких скобках
+            second_input = match.group(0)
+
+            # заменили все = на :
+            match2 = re.sub(r'=', r':', second_input)
+
+            # название каждого тега (все что до :) заключили в "" такие кавычки
+            match2 = re.sub(r'([a-zA-Z]+)(:)', r'"\1"\2', match2)
+
+            # в итоге получили python dict в string представлении, преобразуем
+            # его в dict
+            dictionar = literal_eval(match2)
+
+            # ===============
+            # меняем тэги так, как вздумается
+            # если есть код статуса отличный от 200 (или 308), считаем что есть ошибка
+            status_code = dictionar.get('status', None)
+            if (status_code is not None) \
+                    and (status_code in ('200', '308')):
+                dictionar['error'] = 'false'
+            elif (status_code is not None) \
+                    and (status_code not in ('200', '308')):
+                dictionar['error'] = 'true'
+
+            # указываем subsystem для каждого метода
+            client_method = dictionar.get('method', None)
+            if client_method == 'getVocabulary':
+                dictionar['subsystem'] = 'nsi'
+
+            # ===============
+
+            # после преобразуем обратно
+            str_to_put_back = str(dictionar)
+
+            # ' на "
+            match3 = re.sub(r'\'', r'"', str_to_put_back)
+
+            # убираем " вокруг ключей и пробел после =
+            match3 = re.sub(r'"([a-zA-Z]+)"(:\s)', r'\g<1>=', match3)
+
+            # заменяем исходную строку тэгов на получившуюся
+            text_metrics = text_metrics.replace(second_input.encode("utf-8"), match3.encode("utf-8"), 1)
+
+    return text_metrics
+
+
+def method(flask_request_obj):
+    """
+    Сгруппировать метрики для prometheus по названию поля method из запроса
+    """
+
+    if ((flask_request_obj.method == "POST")
+            and ("method" in flask_request_obj.json)):
+        method_str = flask_request_obj.json["method"]
+        return f"{method_str}"
+    else:
+        return f"{flask_request_obj.path}"
+
+
 # Всё что ниже - функции-скрипты, "api" для service_manager2.sh, те штуки, которые нужны в оболочке сервиса, но мне
 # лениво их реализовывать на shell-script
+# комментарий из будущего: очень хорошо что я так сделал, теперь легче будет перевести service_manager на python
 
 
 # noinspection PyPep8Naming
@@ -564,9 +644,9 @@ def test_api():
 
     # тестирование методов
     # -----
-    method = 'pingpong'
+    method_name = 'pingpong'
     params = {'marco': 'polo'}
-    result = send_request(method, params, service_url, logger_for_tests)
+    result = send_request(method_name, params, service_url, logger_for_tests)
     exp_res = {'polo': 'marco'}
     testResult = result[0]['result'] == exp_res
     if testResult:
@@ -575,7 +655,7 @@ def test_api():
         color_scheme = color_scheme_red
 
     logger_for_tests.log(f'+++++\n\
-    {method} \n\
+    {method_name} \n\
     request :{params}\n\
     result  :{result[0]["result"]}\n\
     expected:{exp_res}\n\
@@ -584,13 +664,13 @@ def test_api():
     # =====
 
     # -----
-    method = 'pingpong'
+    method_name = 'pingpong'
     params = {'ping': 'pong'}
-    result = send_request(method, params, service_url, logger_for_tests)
+    result = send_request(method_name, params, service_url, logger_for_tests)
     exp_res = {'pong': 'ping'}
 
     logger_for_tests.log(f'+++++\n\
-    {method} \n\
+    {method_name} \n\
     request :{params}\n\
     result  :{result[0]["result"]}\n\
     expected:{exp_res}\n\
@@ -598,9 +678,9 @@ def test_api():
     # =====
 
     # -----
-    method = 'pingpong'
+    method_name = 'pingpong'
     params = {'marco': 'polo'}
-    result = send_request(method, params, service_url, logger_for_tests)
+    result = send_request(method_name, params, service_url, logger_for_tests)
     exp_res = {'polo': 'marco'}
     testResult = result[0]['result'] != exp_res
     if testResult:
@@ -609,7 +689,7 @@ def test_api():
         color_scheme = color_scheme_red
 
     logger_for_tests.log(f'+++++\n\
-    {method} \n\
+    {method_name} \n\
     request :{params}\n\
     result  :{result[0]["result"]}\n\
     expected:{exp_res}\n\

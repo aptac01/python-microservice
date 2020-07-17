@@ -1,12 +1,17 @@
 #!env/bin/python
 # coding: utf-8
 
+"""
+Модуль с реализацией методов сервиса.
+Большая часть сервиса обычно здесь.
+Также, обычно здесь же и методы для ошибок, т.к. нигде кроме как здесь и в app они не нужны.
+"""
+
 import json
 import glob
 import re
 # noinspection PyUnresolvedReferences
 import importlib
-from ast import literal_eval
 
 from flask import current_app as app
 
@@ -98,74 +103,3 @@ def parse_error(request_id, data=None):
     e_code = -32700
     e_msg = "Parse error"
     return returned_error(request_id, e_code, e_msg, data)
-
-
-def get_prometheus_metric_labels(text_metrics):
-    """
-    Спарсить текстовые (результирующие) метрики в dict,
-    добавить в каждую метрику тэг error, который равен false если status есть и
-        равен одному из (200, 308), или true если status есть и не равен одному из (200, 308),
-    запаковывать dict обратно "как было"
-    """
-    for input_to_parse in text_metrics.split(b'\n'):
-        input_to_parse = str(input_to_parse)
-        match = re.search(r'{.+}', input_to_parse)
-        # отсеяли ненужные строки, оставили только метрики
-        if match is not None:
-            # взяли только ту часть, которая в {} таких скобках
-            second_input = match.group(0)
-
-            # заменили все = на :
-            match2 = re.sub(r'=', r':', second_input)
-
-            # название каждого тега (все что до :) заключили в "" такие кавычки
-            match2 = re.sub(r'([a-zA-Z]+)(:)', r'"\1"\2', match2)
-
-            # в итоге получили python dict в string представлении, преобразуем
-            # его в dict
-            dictionar = literal_eval(match2)
-
-            # ===============
-            # меняем тэги так, как вздумается
-            # если есть код статуса отличный от 200 (или 308), считаем что есть ошибка
-            status_code = dictionar.get('status', None)
-            if (status_code is not None) \
-                    and (status_code in ('200', '308')):
-                dictionar['error'] = 'false'
-            elif (status_code is not None) \
-                    and (status_code not in ('200', '308')):
-                dictionar['error'] = 'true'
-
-            # указываем subsystem для каждого метода
-            client_method = dictionar.get('method', None)
-            if client_method == 'getVocabulary':
-                dictionar['subsystem'] = 'nsi'
-
-            # ===============
-
-            # после преобразуем обратно
-            str_to_put_back = str(dictionar)
-
-            # ' на "
-            match3 = re.sub(r'\'', r'"', str_to_put_back)
-
-            # убираем " вокруг ключей и пробел после =
-            match3 = re.sub(r'"([a-zA-Z]+)"(:\s)', r'\g<1>=', match3)
-
-            # заменяем исходную строку тэгов на получившуюся
-            text_metrics = text_metrics.replace(second_input.encode("utf-8"), match3.encode("utf-8"), 1)
-
-    return text_metrics
-
-
-def method(flask_request_obj):
-    """
-    Сгруппировать метрики по названию поля method из запроса
-    """
-
-    if ((flask_request_obj.method == "POST")
-            and ("method" in flask_request_obj.json)):
-        method_str = flask_request_obj.json["method"]
-        return f"{method_str}"
-    else:
-        return f"{flask_request_obj.path}"

@@ -1,6 +1,13 @@
 #!env/bin/python
 # coding: utf-8
 
+"""
+Модуль основного приложения, который паралелится через uwsgi
+Теоретически, можно запустить его напрямую (в dev-окружении), но иногда это неэффективно,
+или (как в случае с экспортом метрик в prometheus) работает некорректно (смотри отличия
+prometheus_flask_exporter.multiprocess от prometheus_flask_exporter)
+"""
+
 import os
 import datetime
 import logging
@@ -12,7 +19,8 @@ from flask import request
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from prometheus_flask_exporter.multiprocess import UWsgiPrometheusMetrics 
 from methods import ping_pong, invalid_parameters
-from methods import get_prometheus_metric_labels, method, parse_error
+from methods import parse_error
+from service_manager_lib import get_prometheus_metric_labels, method
 
 # --------------- flask      ---------------
 app = Flask(__name__)
@@ -48,24 +56,36 @@ app.logger.info(f'Startup timestamp: {now}')
 # noinspection PyUnusedLocal
 @app.errorhandler(400)
 def incorrect_request(error):
+    """
+    Обработать ошибку с кодом 400
+    """
     return make_response(jsonify({'error': 'An incorrect request format'}), 400)
 
 
 # noinspection PyUnusedLocal
 @app.errorhandler(404)
 def not_found(error):
+    """
+    Обработать ошибку с кодом 404
+    """
     return make_response(jsonify({'error': 'Not found'}), 404)
 
 
 @app.route('/ping/')
 @UWsgiPrometheusMetrics.do_not_track()
 def ping():
+    """
+    Подтвердить, что сервис "жив", ответить на проверку consul'а
+    """
     return 'pong'
 
 
 @app.route('/metrics', methods=['GET'])
 @UWsgiPrometheusMetrics.do_not_track()
 def prometheus_metrics():
+    """
+    Отдать метрики для prometheus'а
+    """
     
     # noinspection PyProtectedMember
     from prometheus_client import multiprocess, CollectorRegistry
@@ -103,17 +123,23 @@ Request.on_json_loading_failed = on_json_loading_failed
 
 @app.route('/', methods=['POST'])
 def main_packet_handler():
+    """
+    Обработать запрос(ы) к сервису.
+    Обработает как единственный запрос ({....data...}), так и batch запрос ([{}, {}, {}])
+    """
     
     request_json = request.json
     result_batch = []    
-    
+
+    # оборачиваем одиночный запрос в []
     if (not isinstance(request_json, list)) \
             and isinstance(request_json, dict):
         
         request_json = [request_json]
 
     for batch_elem in request_json:
-        
+
+        # если при парсинге json из запроса произошла ошибка - пытаемся помочь пользователю понять где она
         if 'e' in batch_elem\
            and 'on_json_loading_failed' in batch_elem:
             result_batch.append(parse_error(None, str(batch_elem['e'])))

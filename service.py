@@ -6,6 +6,7 @@
 Черновик, будет переделываться
 """
 
+import os
 import subprocess
 from service_manager_lib import MyLogger
 
@@ -29,12 +30,22 @@ color_scheme_service = {
             'color_front': 'cyan',
             'color_back': 'black',
             'colored_text': '000',
+        },
+        {
+            'color_front': 'yellow',
+            'colored_text': r'config file is at [a-zA-Zа-яА-Я\.\\\/_]+',
         }
     ]
 }
 
 nohup_logger.log('----------------- Service managing operation start -----------------')
-nohup_logger.log('123 test', color_scheme_service)
+nohup_logger.log(f'running from {os.path.dirname(__file__)}', color_scheme_service)
+
+config_filename = f'{os.path.dirname(__file__)}/env_vars_w.ini'
+env_vars_w = open(config_filename, 'r')
+nohup_logger.log(f'config file is at {config_filename}', color_scheme_service)
+contents = env_vars_w.read()
+nohup_logger.log(contents)
 
 # вся вот эта хрень будет скрыта от пользователя, если все проходит штатно
 # ---------------------
