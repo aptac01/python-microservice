@@ -1,7 +1,7 @@
 # coding: utf-8
 
 """
-Конфиг для flask, скорее всего, без него совсем не получится
+Конфиг для flask
 """
 
 import os
@@ -12,6 +12,7 @@ class Config(object):
     """
     Конфиг
     """
+    # вот это в большинстве случаев не надо убирать, SECRET_KEY на каждом деплое должен быть разный
     DEBUG = True
     TESTING = True
     CSRF_ENABLED = True
@@ -19,8 +20,8 @@ class Config(object):
     JSON_AS_ASCII = False
     # python3.x binascii.hexlify(os.urandom(24))
     SECRET_KEY = 'd17c571102250cec991fb6393e417d767cdee3ca537cf43a'
-    DATE_FROM = '1900-01-01'
-    DATE_TO = '2050-12-31'
+
+    # эта часть меняется в каждом приложении
     TMP_DIR = 'tmp/'
     CACHE_MAXSIZE = os.environ.get("CACHE_MAXSIZE")
     CACHE_TTL = os.environ.get("CACHE_TTL")    
@@ -34,14 +35,6 @@ class ProductionConfig(Config):
     Конфиг для продакшена
     """
     DEBUG = False
-
-
-class StagingConfig(Config):
-    """
-    Конфиг для "предпремьерного показа"
-    """
-    DEVELOPMENT = True
-    DEBUG = True
 
 
 class DevelopmentConfig(Config):
