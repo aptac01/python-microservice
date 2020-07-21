@@ -19,7 +19,7 @@ from flask import request
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from prometheus_flask_exporter.multiprocess import UWsgiPrometheusMetrics 
 from methods import ping_pong, invalid_parameters
-from methods import parse_error
+from methods import parse_error, convert_currency
 from service_manager_lib import get_prometheus_metric_labels, method
 
 # --------------- flask      ---------------
@@ -167,6 +167,12 @@ def main_packet_handler():
             
             result = ping_pong(request_id, params)
             
+            result_batch.append(result)
+
+        if method_from_client == 'convert':
+
+            result = convert_currency(params)
+
             result_batch.append(result)
         
         else:
