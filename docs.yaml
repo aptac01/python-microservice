@@ -1,0 +1,28 @@
+openapi: "3.0.0"
+info:
+  title: "Example Api"
+  description: "Example python microservice, where I try different stuff I'm interested in"
+  version: "1.0"
+  contact:
+    name: "Alex Tamilin"
+    url: "https://t.me/aptac01"
+    email: "popovalex402@gmail.com"
+servers:
+  - url: "http://localhost:1234/"
+    description: "instance of the service in docker container"
+paths:
+  /:
+    post:
+      summary: "core endpoint, which encapsulates all available service methods"
+      description: "'nuff said in summary"
+
+  /metrics:
+    get:
+      summary: "serve metrics for prometheus"
+      description: "Those metrics are exported from prometheus_flask_exporter and modified to satisfy requirements from people sysadmins and project managers"
+  /ping:
+    get:
+      summary: "should responds with \"pong\" and status 200, but responds with redirect message"
+      description: "Method needed to integrate with consul. The idea is that consul checks on this endpoint every couple of seconds, to verify that service is alive and well. Consul works with that."
+
+"читать продолжение в источнике... https://idratherbewriting.com/learnapidoc/pubapis_openapi_step4_paths_object.html"
