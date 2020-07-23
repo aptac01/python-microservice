@@ -122,14 +122,23 @@ Request.on_json_loading_failed = on_json_loading_failed
 
 
 @app.route('/', methods=['POST'])
-def main_packet_handler():
+def another_handler():
+    """
+    Вызвать main_packet_handler без параметра
+    """
+    return main_packet_handler(None)
+
+
+# noinspection PyUnusedLocal
+@app.route('/<var_route>', methods=['POST'])
+def main_packet_handler(var_route):
     """
     Обработать запрос(ы) к сервису.
     Обработает как единственный запрос ({....data...}), так и batch запрос ([{}, {}, {}])
     """
     
     request_json = request.json
-    result_batch = []    
+    result_batch = []
 
     # оборачиваем одиночный запрос в []
     if (not isinstance(request_json, list)) \
@@ -169,7 +178,7 @@ def main_packet_handler():
             
             result_batch.append(result)
 
-        if method_from_client == 'convert':
+        elif method_from_client == 'convert':
 
             result = convert_currency(params)
 
