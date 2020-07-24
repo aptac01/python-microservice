@@ -2,7 +2,7 @@
 # author: Alex Tamilin, popovalex402@gmail.com
 # help по скрипту: . ./название_этого_файла.sh --help
 # путь до конфига: config_filename (↓) 
-config_filename="/home/aptac01/python_microservice/env_vars_w.ini"
+config_filename="/home/user/python_microservice/env_vars_w.ini"
 
 help_message="
 usage:

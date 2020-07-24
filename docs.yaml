@@ -11,11 +11,55 @@ servers:
   - url: "http://localhost:1234/"
     description: "instance of the service in docker container"
 paths:
-  /:
+  /pingpong:
     post:
-      summary: "core endpoint, which encapsulates all available service methods"
-      description: "'nuff said in summary"
-
+      summary: "pingping method, solely for testing"
+      description: "if ping:pong - gives pong:ping, marco:polo - polo:marco"
+      requestBody:
+        description: user to add to the system
+        content: 
+          'application/json':
+            schema:
+              title: "object name"
+              type: object
+              properties:
+                jsonrpc:
+                  type: string
+                  description: "must be equal to version used, 2.0 in our case"
+                id:
+                  type: string
+                  description: "returns a request id that client used in his request"
+                method:
+                  type: string
+                  description: "method name, in this case - pingpong"
+            examples:
+              user:
+                summary: pingpong
+                content: 
+                  'application/json':
+                    jsonrpc: "2.0"
+                    id: 'anything'
+                    method: 'pingpong'
+                    params:
+                      ping: "pong"
+      responses:
+        200:
+          description: "successfull response"
+          content:
+            application/json:
+              schema:
+                title: "object name"
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                    description: "must be equal to version used, 2.0 in our case"
+                  id:
+                    type: string
+                    description: "returns a request id that client used in his request"
+                  result:
+                    type: object
+                    description: "resulting dictionary, \"polo\":\"marco\" (if \"marco\":\"polo\" was requested) and \"pong\":\"ping\" (if \"ping\":\"pong\" was requested)"
   /metrics:
     get:
       summary: "serve metrics for prometheus"
@@ -24,5 +68,3 @@ paths:
     get:
       summary: "should responds with \"pong\" and status 200, but responds with redirect message"
       description: "Method needed to integrate with consul. The idea is that consul checks on this endpoint every couple of seconds, to verify that service is alive and well. Consul works with that."
-
-"читать продолжение в источнике... https://idratherbewriting.com/learnapidoc/pubapis_openapi_step4_paths_object.html"
