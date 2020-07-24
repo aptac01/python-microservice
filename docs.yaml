@@ -13,14 +13,14 @@ servers:
 paths:
   /pingpong:
     post:
-      summary: "pingping method, solely for testing"
+      summary: "pingpong method, solely for testing"
       description: "if ping:pong - gives pong:ping, marco:polo - polo:marco"
       requestBody:
-        description: user to add to the system
+        description: "Place for your ad"
         content: 
           'application/json':
             schema:
-              title: "object name"
+              title: "List of parameters to use in request"
               type: object
               properties:
                 jsonrpc:
@@ -35,13 +35,7 @@ paths:
             examples:
               user:
                 summary: pingpong
-                content: 
-                  'application/json':
-                    jsonrpc: "2.0"
-                    id: 'anything'
-                    method: 'pingpong'
-                    params:
-                      ping: "pong"
+                externalValue: "http://тут.должна/быть-сцылка-на-файл-с-примером"
       responses:
         200:
           description: "successfull response"
@@ -64,7 +58,13 @@ paths:
     get:
       summary: "serve metrics for prometheus"
       description: "Those metrics are exported from prometheus_flask_exporter and modified to satisfy requirements from people sysadmins and project managers"
+      responses:
+        200:
+          description: "In case of success returns whole bunch of prometheus specific metrics"
   /ping:
     get:
       summary: "should responds with \"pong\" and status 200, but responds with redirect message"
       description: "Method needed to integrate with consul. The idea is that consul checks on this endpoint every couple of seconds, to verify that service is alive and well. Consul works with that."
+      responses:
+        200:
+          description: "In case of success returns some giberish, to show consul that this service instance is alive"
