@@ -174,9 +174,9 @@ def is_port_open(ip, port, timeout=3):
     timeout (int): максимум времени на попытку коненкта, в секундах
         если за это время ответа нет - считается что порт закрыт
     """
-    
+
     import socket
-    
+
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(timeout)
     # noinspection PyBroadException
@@ -194,22 +194,22 @@ def connect_to_consul(consul_address, consul_port, logger):
     """
     Приконнектиться к консулу, или показать ошибку
     """
-    
+
     import consul
-    
+
     if (consul_address is None) or (consul_port is None):
         logger.log(f"No address or port, exiting doing nothing")
-        return None    
-    
+        return None
+
     if not(is_port_open(consul_address, consul_port)):
         logger.log(f"Error connecting consul on {consul_address}:{consul_port}: address is not responding")
-        return None        
+        return None
     try:
         c = consul.Consul(host=consul_address, port=consul_port)
     except Exception as e:
         logger.log(f"Error connecting consul on {consul_address}:{consul_port} : {e}")
         return None
-    
+
     return c
 
 
@@ -217,11 +217,11 @@ def check_service(service_id, consul_address, consul_port, logger):
     """
     Проверить регистрацию сервиса в консуле
     """
-    
+
     c = connect_to_consul(consul_address, consul_port, logger)
     if c is None:
         return None
-    
+
     index, services = c.catalog.services()
 
     s_dict = {}
@@ -230,7 +230,7 @@ def check_service(service_id, consul_address, consul_port, logger):
         index, data = c.catalog.service(service)
 
         for s_data in data:
-             
+
             # s_data['ServiceName'],
             # s_data['ServiceID'],
             # s_data['ServiceAddress'],
@@ -238,7 +238,7 @@ def check_service(service_id, consul_address, consul_port, logger):
             # s_data['ServiceTags']
 
             s_dict[s_data['ServiceID']] = s_data
-            
+
     if s_dict is None:
         return False
 
@@ -279,7 +279,7 @@ def deregister_service(service_id, consul_address, consul_port, logger):
     """
     Дерегистрировать сервис из консула
     """
-    
+
     c = connect_to_consul(consul_address, consul_port, logger)
     if c is None:
         return
@@ -291,13 +291,13 @@ def send_request(method_name, params, url, logger, request_id=None):
     """
     Отправить запрос с указанными параметрами и вернуть ответ (или ошибку).
     """
-    
+
     import requests
     import uuid
-    
+
     if request_id is None:
         request_id = str(uuid.uuid4())
-    
+
     try:
         # noinspection PyUnresolvedReferences
         requests.packages.urllib3.disable_warnings()
@@ -312,16 +312,16 @@ def send_request(method_name, params, url, logger, request_id=None):
             r_result = request.json()
         else:
             r_result = [{"error": {
-                "code": request.status_code, 
+                "code": request.status_code,
                 "message": request.text
             }}]
 
     except Exception as e:
-        
+
         logger.log(f"Request error: {e}")
         return [{"error": {
-            "code": 123, 
-            "message": f"Request error: {e}", 
+            "code": 123,
+            "message": f"Request error: {e}",
             "data": None
         }}]
 
@@ -392,12 +392,20 @@ def get_prometheus_metric_labels(text_metrics):
 
 def method(flask_request_obj):
     """
-    Сгруппировать метрики для prometheus по названию поля method из запроса
+    Сгруппировать метрики для prometheus по названию поля method из запроса.
+    Непонятно как группировать вызовы нескольких разных методов batch-запросами,
+    поэтому берем название метода из первого объекта - в большинстве случаев он будет единственный.
+
     """
 
+    if isinstance(flask_request_obj.json, list):
+        request_body = flask_request_obj.json[0]
+    else:
+        request_body = flask_request_obj.json
+
     if ((flask_request_obj.method == "POST")
-            and ("method" in flask_request_obj.json)):
-        method_str = flask_request_obj.json["method"]
+            and ("method" in request_body)):
+        method_str = request_body["method"]
         return f"{method_str}"
     else:
         return f"{flask_request_obj.path}"
@@ -447,7 +455,7 @@ def execute_relog(relog_fl):
     ERROR_WARNING_ROWS = [
         r'\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}\] ERROR in (methods|app):.{1,}'
     ]
-        
+
     # файлы отсортированные по дате модификации
     logs = sorted(Path('log').iterdir(), key=os.path.getmtime)
     logs_to_proccess = []
@@ -493,38 +501,38 @@ def execute_relog(relog_fl):
     string_deleted_counter = 0
 
     for _log in logs_to_proccess:
-        
+
         file = open(_log, 'r')
-        
+
         # если поймали эксепшон - выводим инфу об этом и продолжаем.
         try:
-            
+
             last_info_timestamp = '[[[sorry, no timestamp on this one]]]'
-        
+
             # определяем, нужна ли каждая строка в этом файле
             for line in file:
-                
+
                 # прокручиваем счётчик
                 string_counter += 1
-                
+
                 info = False
                 warning = False
-                
+
                 for regex in INFO_ROWS:
                     match = re.match(regex, line)
-                    
+
                     if match:
-                        info = True 
+                        info = True
                         # каждый раз пересохраняем таймштамп 
                         # для записи в exceptions_log
                         last_info_timestamp = '[[' + match.group(1) + ']]'
-                    
+
                 for regex in ERROR_WARNING_ROWS:
                     match = re.match(regex, line)
-                    
+
                     if match:
-                        warning = True 
-                
+                        warning = True
+
                 if info and not warning:
                     # сообщение - информационное, пропускаем его
                     string_deleted_counter += 1
@@ -537,7 +545,7 @@ def execute_relog(relog_fl):
                     # пишем в exceptions.log - эксепшоны
                     exc_updated = True
                     exceptions_log.write(last_info_timestamp + ' - ' + line)
-                
+
         except Exception as e:
             except_dicts.append(
                 {
@@ -545,7 +553,7 @@ def execute_relog(relog_fl):
                     'exception': str(type(e).__name__+':'+str(e))
                 }
             )
-            
+
         # удаляем каждый лог старше заданного количества дней
         file_m_time = os.path.getmtime(_log)
         file_m_date = datetime.datetime.fromtimestamp(file_m_time)
@@ -554,9 +562,9 @@ def execute_relog(relog_fl):
         if delta > DELETE_LOGS_ENV:
             logfiles_deleted.append(file.name)
             os.remove(file.name)
-        
+
         file.close()
-        
+
     logger_for_relog.log(f'Relog report:')
     logger_for_relog.log(f'---- log strings processed (x): {string_counter}')
     logger_for_relog.log(f'---- log strings ignored (y): {string_deleted_counter}')
@@ -639,7 +647,7 @@ def test_api():
 
     logger_for_tests.log(f'Checking registration in consul: {SERVICE_NAME_ENV} on {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV} \n\
     result - {res_consul}, must be true on prod.')
-        
+
     logger_for_tests.log(f'Testing {service_url}.')
 
     # тестирование методов
@@ -697,8 +705,8 @@ def test_api():
     was it successful?: {testResult}', color_scheme)
 
     # =====
-        
-    nFile.close() 
+
+    nFile.close()
 
 
 # noinspection PyPep8Naming,DuplicatedCode
@@ -741,33 +749,33 @@ def register_in_consul():
 {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV}.')
 
     if not(check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consulreg)):
-        
+
         log_for_consulreg.log(f'{SERVICE_NAME_ENV} is not registered on \
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
 {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV}, trying to register it.')
-        
+
         register_service(service, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consulreg)
-        
+
         if check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consulreg):
-        
+
             # всё ок, регистрация успешна
             log_for_consulreg.log(f'{SERVICE_NAME_ENV} registered on \
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
 {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV} succesfully.')
-        
+
         else:
-        
+
             log_for_consulreg.log(f'Something went wrong registering {SERVICE_NAME_ENV} on \
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
 {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV}.')
 
     else:
-        
+
         # сервис с таким id уже зарегистрирован, что то не так с настройками/конфигом
         log_for_consulreg.log(f'WARNING:{SERVICE_NAME_ENV} is already registered on \
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
 {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV}, exiting without register attempt, check your config({configFile}).')
-        
+
     nFile.close()
 
 
@@ -795,28 +803,28 @@ def deregister_in_consul():
 
     # начинаем дерегистрацию
     if check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consuldereg):
-        
+
         log_for_consuldereg.log(f'{SERVICE_NAME_ENV} registered on \
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
 {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV}, trying to deregister it.')
 
         deregister_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consuldereg)
-        
+
         if not(check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consuldereg)):
-            
+
             # дерегистрировали, всё ок
             log_for_consuldereg.log(f'{SERVICE_NAME_ENV} deregistered on \
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
 {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV} succesfully.')
-            
-        else: 
-            
+
+        else:
+
             log_for_consuldereg.log(f'WARNING:{SERVICE_NAME_ENV} still registered on \
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
-{SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV}.')   
-        
+{SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV}.')
+
     else:
-        
+
         # нет сервиса с таким id
         log_for_consuldereg.log(f'{SERVICE_NAME_ENV} is not registered on \
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
@@ -853,9 +861,9 @@ def check_consul_reg():
         check = False
 
     if check:
-        
+
         sys.exit(0)
-        
+
     else:
 
         sys.exit(1)
@@ -868,8 +876,8 @@ def create_temp_dirs():
     """
     import os
     from pathlib import Path
-    
+
     # создаем папки для временных файлов
     Path(os.environ['api_directory']+'/pfe_multiprocess_tmp').mkdir(parents=True, exist_ok=True)
     Path(os.environ['api_directory']+'/log').mkdir(parents=True, exist_ok=True)
-    Path(os.environ['api_directory']+'/tmp').mkdir(parents=True, exist_ok=True)    
+    Path(os.environ['api_directory']+'/tmp').mkdir(parents=True, exist_ok=True)

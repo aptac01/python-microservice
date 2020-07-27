@@ -12,9 +12,12 @@ import os
 import datetime
 import logging
 from logging.handlers import RotatingFileHandler
-from flask import Flask, jsonify, abort, Request
+from flask import Flask, jsonify, abort, Request, redirect
 from flask import make_response
 from flask import request
+from flask import send_from_directory
+from flask_httpauth import HTTPBasicAuth
+from werkzeug.security import generate_password_hash, check_password_hash
 # noinspection PyProtectedMember
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from prometheus_flask_exporter.multiprocess import UWsgiPrometheusMetrics 
@@ -28,6 +31,24 @@ app = Flask(__name__)
 # --------------- app config ---------------
 app.config.from_object(os.environ['APP_SETTINGS'])
 CONSUL_NAME = app.config['CONSUL_NAME']
+
+
+# --------------- basic auth ---------------
+auth = HTTPBasicAuth()
+users = {
+    "aptac01": generate_password_hash("basic_password")
+}
+
+
+@auth.verify_password
+def verify_password(username, password):
+    """
+    Проверить пароль пользователя. Метод для базовой авторизации для доступа к интерактивному парсеру документации
+    """
+    if username in users and \
+            check_password_hash(users.get(username), password):
+        return username
+
 
 # --------------- prometheus ---------------
 metrics = UWsgiPrometheusMetrics(app,  
@@ -103,6 +124,46 @@ def prometheus_metrics():
     metrics_response = get_prometheus_metric_labels(metrics_response)
     
     return metrics_response, 200, headers
+
+
+@app.route('/swagger_ui', methods=['GET'])
+@UWsgiPrometheusMetrics.do_not_track()
+@auth.login_required
+def swagger_ui():
+    """
+    Редиректим на swagger_ui_slash
+    """
+    return redirect('/swagger_ui/')
+
+
+@app.route('/swagger_ui/', methods=['GET'])
+@UWsgiPrometheusMetrics.do_not_track()
+@auth.login_required
+def swagger_ui_slash():
+    """
+    Показать содержимое docs.yaml в удобном графическом интерфейсе
+    """
+    return send_from_directory('swagger_ui', 'index.html')
+
+
+@app.route('/swagger_ui/<file>', methods=['GET'])
+@UWsgiPrometheusMetrics.do_not_track()
+@auth.login_required
+def swagger_ui_files(file):
+    """
+    Скрипты для swaggerUI
+    """
+    return send_from_directory('swagger_ui', file)
+
+
+@app.route('/docs_scheme', methods=['GET'])
+@UWsgiPrometheusMetrics.do_not_track()
+@auth.login_required
+def swagger_ui_scheme():
+    """
+    Схема для swaggerUI
+    """
+    return send_from_directory('', 'docs.yaml')
 
 
 # noinspection PyUnusedLocal
