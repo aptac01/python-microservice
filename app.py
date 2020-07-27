@@ -12,17 +12,13 @@ import os
 import datetime
 import logging
 from logging.handlers import RotatingFileHandler
-from flask import Flask, jsonify, abort, Request, redirect
-from flask import make_response
-from flask import request
-from flask import send_from_directory
+from flask import Flask, jsonify, abort, Request, redirect, make_response, request, send_from_directory
 from flask_httpauth import HTTPBasicAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 # noinspection PyProtectedMember
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from prometheus_flask_exporter.multiprocess import UWsgiPrometheusMetrics 
-from methods import ping_pong, invalid_parameters
-from methods import parse_error, convert_currency
+from methods import ping_pong, invalid_parameters, parse_error
 from service_manager_lib import get_prometheus_metric_labels, method
 
 # --------------- flask      ---------------
@@ -237,12 +233,6 @@ def main_packet_handler(var_route):
             
             result = ping_pong(request_id, params)
             
-            result_batch.append(result)
-
-        elif method_from_client == 'convert':
-
-            result = convert_currency(params)
-
             result_batch.append(result)
         
         else:
