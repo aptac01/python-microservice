@@ -89,7 +89,7 @@ def returned_error(request_id, error_code, message, data=None, args=None):
 
 def invalid_parameters(request_id, data=None, args=None):
     """
-    Ошибка входных параметров, возникает когда в запросе неверные параметры
+    Ошибка входных параметров, возникает когда в запросе неверные параметры __
     """
     e_code = -12345678
     e_msg = "Неверные параметры"
