@@ -10,22 +10,29 @@
 import os
 import sys
 import json
+import yaml
 import subprocess
 from service_manager_lib import MyLogger
 
 cnfg = os.path.dirname(os.path.abspath(__file__))
-print(__file__)
-print(cnfg)
-config_filename = f'{cnfg}/config.json'
+#print(__file__)
+config_filename = f'{cnfg}/config.yaml'
 
-with open(config_filename) as f:
-    config = json.load(f)
+
+with open(config_filename, 'r') as stream:
+    try:
+        config = yaml.safe_load(stream)
+    except yaml.YAMLError as exc:
+        print(exc)
+
+        # вот тут config имеет тип dict
 
 if config is None:
     # todo: заменить на MyLogger
     print('couldnt find config file! exiting')
     sys.exit(1)
 
+# todo заменить вот это на то, что описано по ссылке https://circleci.com/docs/2.0/writing-yaml/#anchors-and-aliases
 # используем значения из конфига повторно, чтобы не писать сочинение при каждом деплое
 config_parts = {
     'uwsgi_exec':               config['env_directory'] + '/bin/uwsgi',
@@ -38,8 +45,8 @@ config_parts = {
     'nohup_out_log':            config['api_directory'] + '/log/nohup.out'
 }
 config = {**config, **config_parts}
-print(config)
-#sys.exit(0)
+#print(config)
+# sys.exit(0)
 
 # вот так обновляем конфиг flask'a
 # app.config.update(config)
@@ -72,13 +79,17 @@ color_scheme_service = {
         },
         {
             'color_front': 'yellow',
-            'colored_text': r'config file is at [a-zA-Zа-яА-Я\.\\\/_]+',
+            'colored_text': r'config file is at [a-zA-Zа-яА-Я\.\\\/_0-1]+',
+        },
+        {
+            'color_front': 'yellow',
+            'colored_text': r'running from :[a-zA-Zа-яА-Я\.\\\/_0-1]+',
         }
     ]
 }
 
 nohup_logger.log('----------------- Service managing operation start -----------------')
-nohup_logger.log(f'running from {os.path.dirname(__file__)}', color_scheme_service)
+nohup_logger.log(f'running from :{cnfg}', color_scheme_service)
 
 nohup_logger.log(f'config file is at {config_filename}', color_scheme_service)
 
@@ -106,3 +117,22 @@ else:
 nohup_logger.log('321   dffddf ', color_scheme_service)
 nohup_logger.log('000 fgfd', color_scheme_service)
 nohup_logger.log('================= Service managing operation finish ================')
+
+# ----------------------------------------------------
+# WARNING!!! GOVNOKOD-FREE TERRITORY
+# ниже этого сообщения может быть только тот код, который попадет в финальную(т.е. релизную) версию файла
+# всякую белиберду сюда не пихать
+# ----------------------------------------------------
+# тут нужно использовать argparse или что-то подобное для того чтобы (внезапно!) распарсить аргументы
+# https://docs.python.org/3.3/library/argparse.html#action - документашка
+
+# from argparse import ArgumentParser
+#
+# parser = ArgumentParser()
+# parser.add_argument("-f", "--file", dest="filename",
+#                     help="write report to FILE", metavar="FILE")
+# parser.add_argument("-q", "--quiet",
+#                     action="store_false", dest="verbose", default=True,
+#                     help="don't print status messages to stdout")
+#
+# args = parser.parse_args()
