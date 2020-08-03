@@ -50,12 +50,13 @@ green_text_scheme = {
 def join(loader, node):
     """
     Define custom yaml construction named join
+    more info: https://stackoverflow.com/a/57327330/8700211
     """
     seq = loader.construct_sequence(node)
     return ''.join([str(i) for i in seq])
 
 
-# register the tag handler
+# register the custom tag handler
 yaml.add_constructor('!join', join)
 
 try:
