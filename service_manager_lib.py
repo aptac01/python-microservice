@@ -12,6 +12,8 @@
   * сами отдельные скрипты (а это не временно)
 """
 
+import io
+
 
 class MyLogger:
     """
@@ -19,7 +21,7 @@ class MyLogger:
     Здесь еще будут изменения
     """
 
-    def __init__(self, file):
+    def __init__(self, file=None):
         """
         Инициализирует логгер, запоминая файл, куда пишутся логи
         """
@@ -61,6 +63,12 @@ class MyLogger:
             'white':          107,
         }
 
+    def set_file(self, file):
+        """
+        Установить внутреннюю ссылку на файл
+        """
+        self.file = file
+
     # noinspection PyPep8Naming
     def log(self, msg, options=None):
         """
@@ -78,6 +86,7 @@ class MyLogger:
                     colored_text (str): кусочек текста, который нужно покрасить, regex
         """
         import os
+        import pathlib
 
         COLOR_LOGS_SCREEN = os.environ.get('COLOR_LOGS_SCREEN')
         if COLOR_LOGS_SCREEN in ('0', 0, False, 'false', 'False'):
@@ -157,14 +166,19 @@ class MyLogger:
         else:
             print(msg)
 
-        msg_ending = ''
-        if not options['newline']:
-            msg_ending = '\n'
+        # печатаем в файл только если это действительно файл
+        if 'name' in dir(self.file) and os.path.isfile(self.file.name):
 
-        if COLOR_LOGS_FILES and colored_msg:
-            self.file.write(colored_msg + msg_ending)
+            msg_ending = ''
+            if not options['newline']:
+                msg_ending = '\n'
+
+            if COLOR_LOGS_FILES and colored_msg:
+                self.file.write(colored_msg + msg_ending)
+            else:
+                self.file.write(msg + msg_ending)
         else:
-            self.file.write(msg + msg_ending)
+            print('No nohup file was found, make sure that it exists')
 
 
 def is_port_open(ip, port, timeout=3):

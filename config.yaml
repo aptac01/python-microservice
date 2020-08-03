@@ -6,12 +6,20 @@ CSRF_ENABLED:  true
 JSON_AS_ASCII: false
 # python3.x binascii.hexlify(os.urandom(24))
 SECRET_KEY:    d17c571102250cec991fb6393e417d767cdee3ca537cf43a
+# testing
+x: 22.5
 
 # всё, что дальше - уникально для каждого приложения
 
 # пути, которые нужно настроить при очередном развертывании
-api_directory: /home/aptac01/python_microservice
-env_directory: /home/aptac01/python_microservice/env
+api_directory: &name /home/aptac01/python_microservice
+env_directory: !join [*name, /env]
+uwsgi_exec: 1
+env_python_exec: 2
+pid_file: 3
+prometheus_multiproc_dir: 3
+TMP_DIR: 4
+nohup_out_log: 5
 
 # команда, lsof на конкретной машине, нужна для остановки сервиса без pid-файла
 lsof_command: lsof
