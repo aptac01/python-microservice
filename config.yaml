@@ -1,3 +1,4 @@
+# FLASK ПРИНИМАЕТ ПЕРЕМЕННЫЕ ДЛЯ СВОЕГО КОНФИГА ТОЛЬКО В ВЕРХНЕМ РЕГИСТРЕ
 # эта часть в большинстве ситуаций не меняется, но SECRET_KEY на каждом деплое должен быть уникальным
 DEBUG:         false
 TESTING:       false
@@ -12,14 +13,15 @@ x: 22.5
 # всё, что дальше - уникально для каждого приложения
 
 # пути, которые нужно настроить при очередном развертывании
-api_directory: &name /home/aptac01/python_microservice
-env_directory: !join [*name, /env]
-uwsgi_exec: 1
-env_python_exec: 2
-pid_file: 3
-prometheus_multiproc_dir: 3
-TMP_DIR: 4
-nohup_out_log: 5
+# переменная  | название метки | значение
+api_directory:            &api /home/aptac01/python_microservice
+env_directory:            &env !join [*api, /env]
+uwsgi_exec:                    !join [*env, /bin/uwsgi]
+env_python_exec:               !join [*env, /bin/python]
+pid_file:                 &pid !join [*api, /tmp/example_api-master.pid]
+prometheus_multiproc_dir:      !join [*api, /pfe_multiprocess_tmp]
+TMP_DIR:                  &tmp !join [*api, /tmp/]
+nohup_out_log:                 !join [*api, /log/nohup.out]
 
 # команда, lsof на конкретной машине, нужна для остановки сервиса без pid-файла
 lsof_command: lsof
@@ -48,23 +50,23 @@ CONSUL_REG:         0
 # красить, ли логи при выводе на экран,
 COLOR_LOGS_SCREEN:  1
 # красить, ли логи при выводе в файлы,
-COLOR_LOGS_FILES:   1
+COLOR_LOGS_FILES:   0
 
-# настроки, для конфига uwsgi,
-# если, нужно добавить параметры в конфиг uwsgi,
-# см. функцию (какую-то) в service.py,
-uwsgi_config_file:          /home/aptac01/python_microservice/tmp/uwsgi.ini
-uwsgi_conf_chdir:           /home/aptac01/python_microservice
-uwsgi_conf_virtualenv:      /home/aptac01/python_microservice/env
-uwsgi_conf_pythonpath:      /home/aptac01/python_microservice/env/bin,
-uwsgi_conf_module:          app
-uwsgi_conf_callable:        app
-uwsgi_conf_processes:       2
-uwsgi_conf_http:            0.0.0.0:1234
-uwsgi_conf_master:          true
-uwsgi_conf_pidfile:         /home/aptac01/python_microservice/tmp/example_api-master.pid
-uwsgi_conf_max_requests:    5000
-uwsgi_conf_disable_logging: true
-uwsgi_conf_logto:           /home/aptac01/python_microservice/log/example_%n.log
-uwsgi_conf_log_maxsize:     100000
-uwsgi_conf_log_date:        '[%%Y:%%m:%%d %%H:%%M:%%S]'
+# настроки, для конфига uwsgi
+# каждый параметр будет передан в конфиг uwsgi
+uwsgi:
+     config_file:     !join [*tmp, uwsgi.ini]
+     chdir:           *api
+     virtualenv:      *env
+     pythonpath:      !join [*env, /bin]
+     module:          app
+     callable:        app
+     processes:       2
+     http:            0.0.0.0:1234
+     master:          true
+     pidfile:         *pid
+     max_requests:    5000
+     disable_logging: true
+     logto:           !join [*api, /log/example_%n.log]
+     log_maxsize:     100000
+     log_date:        '[%%Y:%%m:%%d %%H:%%M:%%S]'

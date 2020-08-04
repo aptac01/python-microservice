@@ -12,8 +12,6 @@
   * сами отдельные скрипты (а это не временно)
 """
 
-import io
-
 
 class MyLogger:
     """
@@ -86,7 +84,6 @@ class MyLogger:
                     colored_text (str): кусочек текста, который нужно покрасить, regex
         """
         import os
-        import pathlib
 
         COLOR_LOGS_SCREEN = os.environ.get('COLOR_LOGS_SCREEN')
         if COLOR_LOGS_SCREEN in ('0', 0, False, 'false', 'False'):

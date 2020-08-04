@@ -2,7 +2,7 @@
 # coding: utf-8
 
 """
-Исполняемый файл для управления сервисом
+Executable for managing service
 Черновик, будет переделываться
 """
 
@@ -16,6 +16,7 @@ import subprocess
 from argparse import ArgumentParser
 from service_manager_lib import MyLogger
 
+# first, we are trying to parse config and load logger
 cnfg = os.path.dirname(os.path.abspath(__file__))
 config_filename = f'{cnfg}/config.yaml'
 
@@ -73,26 +74,9 @@ with opened_config_file as stream:
         nohup_logger.log(str(exc))
         sys.exit(1)
 
-    # вот тут config имеет тип dict
+# at this point (if all goes well) config has type dictionary
 
-# todo заменить вот это на то, что описано по ссылке https://circleci.com/docs/2.0/writing-yaml/#anchors-and-aliases и !join
-# todo: перенести все пути обратно в конфиг
-# используем значения из конфига повторно, чтобы не писать сочинение при каждом деплое
-# config_parts = {
-#     'uwsgi_exec':               config['env_directory'] + '/bin/uwsgi',
-#     'env_python_exec':          config['env_directory'] + '/bin/python',
-#     'pid_file':                 config['api_directory'] + '/tmp/example_api-master.pid',
-#     'prometheus_multiproc_dir': config['api_directory'] + '/pfe_multiprocess_tmp',
-#     'TMP_DIR':                  config['api_directory'] + '/tmp/',
-#
-#     # путь до nohup.out
-#     'nohup_out_log':            config['api_directory'] + '/log/nohup.out'
-# }
-# config = {**config, **config_parts}
-
-nohup_logger.log(config['env_directory'])
-
-# вот так обновляем конфиг flask'a
+# set flask's config
 # app.config.update(config)
 
 try:
@@ -111,6 +95,7 @@ nohup_logger.log(f'config file is at {config_filename}', yellow_text_scheme)
 
 # вся вот эта хрень будет скрыта от пользователя, если все проходит штатно
 # ---------------------
+# таким макаром запускаем что-то и ждем пока оно выполнится
 # если cd задать неправильный путь для перехода - subprocess.run выкидывает exception (т.е. его надо ловить)
 # если подпроцесс завершился сам - exception (если он был) не выкидывается.
 # про другие такие команды не знаю, надо тестить
@@ -122,6 +107,15 @@ if result.returncode != 0:
     nohup_logger.log(f'The exit code is {result.returncode}')
 if result.stderr not in (None, '', 0, b''):
     nohup_logger.log(f'This is what happened: {result.stderr.decode("utf8")}')
+
+# nohup_logger.log('daemonizing kill -h')
+# таким макаром запускаем и не ждем пока оно выполнится
+# оно умирает по завершению родительского скрипта (т.е. вот этого)
+# subprocess.run(['kill', '-h'], stdout=None, stderr=None, check=False)
+
+# пока что единственный рабочий способ нормально запустить сервис в фоне:
+# os.system('ddd')
+
 # ---------------------
 
 result = subprocess.run(['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -129,6 +123,8 @@ if result.returncode == 0:
     nohup_logger.log(f'Current hash in GIT: {result.stdout.decode("utf8")}')
 else:
     nohup_logger.log(f'something went wrong with git, check it out:\n---\n{result.stderr.decode("utf8")}\n===')
+
+nohup_logger.log(f'{config["uwsgi"]}', green_text_scheme)
 
 nohup_logger.log('================= Service managing operation finish ================')
 
@@ -146,18 +142,18 @@ actions = [
     ['stop', '        stops the service by the pid file, which is in the tmp folder'],
     ['hardstop', '    kills the service on the port specified in the config'],
     ['restart', '     performs stop, waits for the port to become free, and then start'],
-    ['status', '      checks the current status of the service assuming the config did not change after launch, '
-               'displays the current hash from the git'],
+    ['status', '''      checks the current status of the service assuming the config did not change after launch, 
+                                           displays the current hash from the git'''],
     ['tests', '       runs tests described in service_manager_lib.test_api'],
     ['relog', '''       processes logs named in RELOG_FILES (as a regular expression).
                                            Performs actions described in  service_manager_lib.relog function
                                            Puts results in */relogs/:
                                                 exceptions.log      - uncaught exceptions
-                                                internal_errors.log - exceptions caught and errors shown to the client as a result    
+                                                internal_errors.log - caught and are shown to the client as a result    
     ''']
 ]
 
-actions_output = ''
+actions_output = '\n'
 actions_keys = []
 
 for action in actions:
@@ -171,7 +167,7 @@ parser = ArgumentParser(prog=f'{__file__}',
                         description=textwrap.dedent('''
                         The idea behind using this script is to keep it as simple as possible deploying and 
                             administrating python microservices written using Flask and launched through uwsgi by 
-                            reducing all control manipulations to one file, and all settings in one config. 
+                            reducing all control manipulations to one file, and all settings to one config. 
                             
                         If --action is not specified or if any unknown argument is caught - nothing will be done. 
                         '''),
@@ -182,17 +178,17 @@ parser = ArgumentParser(prog=f'{__file__}',
                             -r - DELETE_RELOG_FILES
                             
                         --action:
-
                         {actions_output}
                         
                         config file
                             {__file__} accepts parameters as config file, which is named config.yaml, present in
                             same folder as {__file__}, and meets yaml specification 1.1 (with one small addition), 
                             for more details about that read https://yaml.org/spec/1.1/.
-                            You can find sample config at sample.config.yaml
+                            You can find sample config in {config['api_directory']}/sample.config.yaml
                             
                             One small addition - you can use "var: !join [one_part_, another_part]"  
-                                var will be equal to one_part_another_part. Also you can use aliases as parts.
+                                var will be equal to one_part_another_part. You can use multiple parts, also you 
+                                can use aliases as parts.
 
                         Why pyyaml(yaml 1.1) and not ruamel.yaml(yaml 1.2)? 
                             I found question on SO with example of a library that only supports 1.1 and I'm too lazy to 
@@ -213,12 +209,19 @@ parser.add_argument(chr(int((float(config['x'])*4)/(1*2))) + chr(int((float(conf
                     action='store_true',
                     help=argparse.SUPPRESS, default=False)
 parser.add_argument('-v', '--version', action='version', help='show version and exit', version='service_manager 3.0')
-# help argument generated by argparse
+# help argument is generated by argparse
 
 args = parser.parse_args()
-nohup_logger.log(f'action argument is:{args.action}')
-nohup_logger.log(f'consul argument is:{args.consul}')
-nohup_logger.log(f'relog argument is:{args.relog}')
-if args.trap is True:
-    nohup_logger.log(f'IT\'S A TRAP!!')
 
+# how to access arguments:
+# nohup_logger.log(f'action argument is:{args.action}')
+# nohup_logger.log(f'consul argument is:{args.consul}')
+# nohup_logger.log(f'relog argument is:{args.relog}')
+# if args.trap is True:
+#     nohup_logger.log(f'IT\'S A TRAP!!')
+
+if args.action == 'start':
+    os.system(f'nohup {config["uwsgi_exec"]} --ini {config["uwsgi"]["config_file"]} >> {config["nohup_out_log"]} 2>> {config["nohup_out_log"]} &')
+elif args.action == 'stop':
+    pass
+# todo: stop service
