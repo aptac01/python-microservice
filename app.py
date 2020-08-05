@@ -27,7 +27,8 @@ app = Flask(__name__)
 # --------------- app config ---------------
 app.config.from_object(os.environ['APP_SETTINGS'])
 CONSUL_NAME = app.config['CONSUL_NAME']
-
+# set flask's config
+# app.config.update(config)
 
 # --------------- basic auth ---------------
 auth = HTTPBasicAuth()

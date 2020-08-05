@@ -16,37 +16,6 @@ import subprocess
 from argparse import ArgumentParser
 from service_manager_lib import MyLogger
 
-# first, we are trying to parse config and load logger
-cnfg = os.path.dirname(os.path.abspath(__file__))
-config_filename = f'{cnfg}/config.yaml'
-
-nohup_logger = MyLogger()
-
-yellow_text_scheme = {
-    'color_pieces': [
-        {
-            'color_front': 'yellow',
-            'colored_text': r'.+',
-        },
-    ]
-}
-red_text_scheme = {
-    'color_pieces': [
-        {
-            'color_front': 'red',
-            'colored_text': f'.+',
-        },
-    ]
-}
-green_text_scheme = {
-    'color_pieces': [
-        {
-            'color_front': 'green',
-            'colored_text': r'.+',
-        },
-    ]
-}
-
 
 def join(loader, node):
     """
@@ -57,42 +26,7 @@ def join(loader, node):
     return ''.join([str(i) for i in seq])
 
 
-# register the custom tag handler
-yaml.add_constructor('!join', join)
-
-try:
-    opened_config_file = open(config_filename, 'r')
-except FileNotFoundError:
-    nohup_logger.log(f'Couldn\'t find config file! Make sure {config_filename} exists; Exiting...', red_text_scheme)
-    sys.exit(1)
-
-with opened_config_file as stream:
-    try:
-        # config = yaml.safe_load(stream, Loader=yaml.Loader)
-        config = yaml.load(stream, Loader=yaml.Loader)
-    except yaml.YAMLError as exc:
-        nohup_logger.log(str(exc))
-        sys.exit(1)
-
-# at this point (if all goes well) config has type dictionary
-
-# set flask's config
-# app.config.update(config)
-
-try:
-    nohup_file = open(config['nohup_out_log'], 'a+')
-except FileNotFoundError:
-    nohup_file = 'no_file'
-except OSError:
-    nohup_file = 'no_file'
-
-nohup_logger.set_file(nohup_file)
-
-nohup_logger.log('----------------- Service managing operation start -----------------')
-nohup_logger.log(f'running from :{cnfg}', yellow_text_scheme)
-
-nohup_logger.log(f'config file is at {config_filename}', yellow_text_scheme)
-
+# все эти комменты надо будет удалить
 # вся вот эта хрень будет скрыта от пользователя, если все проходит штатно
 # ---------------------
 # таким макаром запускаем что-то и ждем пока оно выполнится
@@ -100,13 +34,13 @@ nohup_logger.log(f'config file is at {config_filename}', yellow_text_scheme)
 # если подпроцесс завершился сам - exception (если он был) не выкидывается.
 # про другие такие команды не знаю, надо тестить
 #   возможно, выкидываются исключения от операционной системы или интерпретатора (bash и т.п.)
-result = subprocess.run(['kill', '-h'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
-
-# nohup_logger.log(f'{result.stdout.decode("utf8")}')
-if result.returncode != 0:
-    nohup_logger.log(f'The exit code is {result.returncode}')
-if result.stderr not in (None, '', 0, b''):
-    nohup_logger.log(f'This is what happened: {result.stderr.decode("utf8")}')
+# result = subprocess.run(['kill', '-h'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+#
+# # nohup_logger.log(f'{result.stdout.decode("utf8")}')
+# if result.returncode != 0:
+#     nohup_logger.log(f'The exit code is {result.returncode}')
+# if result.stderr not in (None, '', 0, b''):
+#     nohup_logger.log(f'This is what happened: {result.stderr.decode("utf8")}')
 
 # nohup_logger.log('daemonizing kill -h')
 # таким макаром запускаем и не ждем пока оно выполнится
@@ -118,24 +52,56 @@ if result.stderr not in (None, '', 0, b''):
 
 # ---------------------
 
-result = subprocess.run(['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-if result.returncode == 0:
-    nohup_logger.log(f'Current hash in GIT: {result.stdout.decode("utf8")}')
-else:
-    nohup_logger.log(f'something went wrong with git, check it out:\n---\n{result.stderr.decode("utf8")}\n===')
-
-nohup_logger.log(f'{config["uwsgi"]}', green_text_scheme)
-
-nohup_logger.log('================= Service managing operation finish ================')
-
 # ----------------------------------------------------
-# WARNING!!! GOVNOKOD-FREE TERRITORY
-# ниже этого сообщения может быть только тот код, который попадет в финальную(т.е. релизную) версию файла
-# всякую белиберду сюда не пихать
-# ----------------------------------------------------
-# https://docs.python.org/3.8/library/argparse.html#action - документация по argparse
+# https://docs.python.org/3.8/library/argparse.html#action - argparse documentation
 
+# first, we are trying to parse config and initialize logger to only print messages on screen
 
+cnfg = os.path.dirname(os.path.abspath(__file__))
+config_filename = f'{cnfg}/config.yaml'
+
+nohup_logger = MyLogger()
+
+# registering the custom tag handler
+yaml.add_constructor('!join', join)
+
+# no config file - no bueno
+try:
+    opened_config_file = open(config_filename, 'r')
+except FileNotFoundError:
+    nohup_logger.log(f'Couldn\'t find config file! Make sure {config_filename} exists; Exiting...', color_front='red')
+    sys.exit(1)
+
+# parsing config
+with opened_config_file as stream:
+    try:
+        # that's the intended ("proper") way of parsing yaml from untrusted source, but since we are expecting our
+        # user to be somewhat experienced and trustworthy, we can afford luxury of not giving a fuck
+        # config = yaml.safe_load(stream, Loader=yaml.Loader)
+        config = yaml.load(stream, Loader=yaml.Loader)
+    except yaml.YAMLError as exc:
+        # but still, if something goes wrong - no bueno
+        nohup_logger.log(str(exc))
+        sys.exit(1)
+
+# at this point config should be dictionary
+
+# trying to open nohup.out file and additionally write logs to it
+# in that case, no file - no big deal
+try:
+    nohup_file = open(config['nohup_out_log'], 'a+')
+except FileNotFoundError:
+    nohup_file = 'no_file'
+except OSError:
+    nohup_file = 'no_file'
+
+nohup_logger.set_file(nohup_file)
+
+# nohup_logger.log(f'running from :{cnfg}', color_front='yellow')
+# nohup_logger.log(f'config file is at {config_filename}', color_front='yellow')
+# nohup_logger.log(f'{config["uwsgi"]}', color_front='green')
+
+# then, we validate users input and decide what does he want
 actions = [
     ['start', '       starts the service via uwsgi'],
     ['start_docker', 'used to start a service via uwsgi in a docker container. NOT TO BE USED BY ITSELF'],
@@ -152,15 +118,14 @@ actions = [
                                                 internal_errors.log - caught and are shown to the client as a result    
     ''']
 ]
-
 actions_output = '\n'
 actions_keys = []
-
 for action in actions:
     actions_output += '                        ' + action[0] + ' - ' + action[1] + '\n'
     actions_keys.append(action[0])
 
 # noinspection PyTypeChecker
+# this will be the help message
 parser = ArgumentParser(prog=f'{__file__}',
                         usage=f'<your_python_exec> {__file__}  -a <action> [-c (1|0)] [-r (1|0)] [-v]',
                         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -195,6 +160,7 @@ parser = ArgumentParser(prog=f'{__file__}',
                             change lib after i parsed config. But some day I will update it.
                         '''))
 
+# defining possible cli arguments
 parser.add_argument('-a', '--action', action='store', help='action, complete list is below', default=None,
                     metavar='<action>',
                     choices=actions_keys,
@@ -209,7 +175,7 @@ parser.add_argument(chr(int((float(config['x'])*4)/(1*2))) + chr(int((float(conf
                     action='store_true',
                     help=argparse.SUPPRESS, default=False)
 parser.add_argument('-v', '--version', action='version', help='show version and exit', version='service_manager 3.0')
-# help argument is generated by argparse
+# help message is generated by argparse, no need to add -h/--help argument
 
 args = parser.parse_args()
 
@@ -220,8 +186,37 @@ args = parser.parse_args()
 # if args.trap is True:
 #     nohup_logger.log(f'IT\'S A TRAP!!')
 
+nohup_logger.log('----------------- Service managing operation start -----------------')
+
+args_from_user = sys.argv
+del args_from_user[0]
+args_from_user_text = ''
+for arg_from_user in args_from_user:
+    args_from_user_text += arg_from_user + ' '
+
+nohup_logger.log(f'Got these args: {args_from_user_text}')
+
+result = subprocess.run(['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+if result.returncode == 0:
+    nohup_logger.log(f'Current hash in GIT: {result.stdout.decode("utf8")}')
+else:
+    nohup_logger.log(f'something went wrong with git, check it out:\n---\n{result.stderr.decode("utf8")}\n===')
+
+
+def start_service(consul_reg):
+    """
+    Start service in background (as a daemon)
+    todo: %in progress%
+    """
+
+    os.chdir(config['api_directory'])
+    str(consul_reg)
+
+
 if args.action == 'start':
     os.system(f'nohup {config["uwsgi_exec"]} --ini {config["uwsgi"]["config_file"]} >> {config["nohup_out_log"]} 2>> {config["nohup_out_log"]} &')
 elif args.action == 'stop':
     pass
 # todo: stop service
+
+nohup_logger.log('================= Service managing operation finish ================')

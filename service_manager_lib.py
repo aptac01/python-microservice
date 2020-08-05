@@ -68,7 +68,7 @@ class MyLogger:
         self.file = file
 
     # noinspection PyPep8Naming
-    def log(self, msg, options=None):
+    def log(self, msg, options=None, **kwargs):
         """
         Напечатать msg на экране и записать его в файл. Опционально, текст можно раскрасить.
 
@@ -82,6 +82,9 @@ class MyLogger:
                     color_front (str): цвет текста (см. self.FOREGROUND)
                     color_back (str): цвет фона (см. self.BACKGROUND)
                     colored_text (str): кусочек текста, который нужно покрасить, regex
+            **kwargs:
+                color_front(str): цвет текста, если передан - всё сообщение будет покрашено в этот цвет
+                color_back(str): цвет фона, если передан - всё сообщение будет покрашено в этот цвет
         """
         import os
 
@@ -111,6 +114,19 @@ class MyLogger:
             options = options_default
         else:
             options = {**options_default, **options}
+
+        if 'color_front' in kwargs:
+            options['color_pieces'].append({
+                'color_front': kwargs['color_front'],
+                'color_back': False,
+                'colored_text': r'.+',
+            })
+        if 'color_back' in kwargs:
+            options['color_pieces'].append({
+                'color_front': False,
+                'color_back': kwargs['color_back'],
+                'colored_text': r'.+',
+            })
 
         colored_msg = None
 
