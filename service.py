@@ -11,10 +11,12 @@ import sys
 import yaml
 import base64
 import argparse
+import datetime
 import textwrap
 import subprocess
+from time import sleep
 from argparse import ArgumentParser
-from service_manager_lib import MyLogger
+from service_manager_lib import MyLogger, proc_status
 
 
 def join(loader, node):
@@ -26,7 +28,7 @@ def join(loader, node):
     return ''.join([str(i) for i in seq])
 
 
-# все эти комменты надо будет удалить
+# todo все эти комменты надо будет удалить
 # вся вот эта хрень будет скрыта от пользователя, если все проходит штатно
 # ---------------------
 # таким макаром запускаем что-то и ждем пока оно выполнится
@@ -49,6 +51,8 @@ def join(loader, node):
 
 # пока что единственный рабочий способ нормально запустить сервис в фоне:
 # os.system('ddd')
+
+# я - дятел, можно было вот так - subprocess.Popen(['a', 'r', 'g', 's']) и немного подождать
 
 # ---------------------
 
@@ -194,13 +198,14 @@ args_from_user_text = ''
 for arg_from_user in args_from_user:
     args_from_user_text += arg_from_user + ' '
 
-nohup_logger.log(f'Got these args: {args_from_user_text}')
-
-result = subprocess.run(['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+nohup_logger.log(f'Got these args: {args_from_user_text}', color_front='yellow')
+nohup_logger.log(f'Timestamp: {str(datetime.datetime.now())}', color_front='light blue')
+result = subprocess.run(['git', 'gegegeg', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 if result.returncode == 0:
-    nohup_logger.log(f'Current hash in GIT: {result.stdout.decode("utf8")}')
+    nohup_logger.log(f'Current hash in GIT: {result.stdout.decode("utf8")}', color_front='light blue')  # todo после этого сообщения в консоли пустая строка, надо разобраться что за дела
 else:
-    nohup_logger.log(f'something went wrong with git, check it out:\n---\n{result.stderr.decode("utf8")}\n===')
+    nohup_logger.log(f'something went wrong with git, check it out:\n---\n{result.stderr.decode("utf8")}\n==='
+                     f'\n---\n{result.stdout.decode("utf8")}\n===', color_front='red') # todo FIX разобраться почему не работает
 
 
 def start_service(consul_reg):
@@ -212,11 +217,35 @@ def start_service(consul_reg):
     os.chdir(config['api_directory'])
     str(consul_reg)
 
+    # res = os.system(
+    #     f'nohup {config["uwsgi_exec"]} --ini {config["uwsgi"]["config_file"]} >> {config["nohup_out_log"]} 2>> {config["nohup_out_log"]} &')
+    res = subprocess.Popen(['nohup',
+                            config["uwsgi_exec"],
+                            '--ini',
+                            config["uwsgi"]["config_file"],
+                            ],
+                           stdout=nohup_file,
+                           stderr=nohup_file)
+
+    nohup_logger.log('waiting a bit to see if service is working or not...', color_front='dark gray')
+    sleep(3)
+    res.poll()
+    nohup_logger.log(f'res: {res.returncode}')
+
+    if res.returncode == 0:
+        nohup_logger.log('Looks like the app is running.', color_front='green')
+    else:
+        nohup_logger.log(f'Something went wrong, uwsgi master pid: {res.pid}, it exited with code: {res.returncode}, '
+                         f'check {config["nohup_out_log"]} and {config["uwsgi"]["logto"]}', color_front='red')
+
 
 if args.action == 'start':
-    os.system(f'nohup {config["uwsgi_exec"]} --ini {config["uwsgi"]["config_file"]} >> {config["nohup_out_log"]} 2>> {config["nohup_out_log"]} &')
+    start_service(args.consul)
 elif args.action == 'stop':
     pass
 # todo: stop service
 
 nohup_logger.log('================= Service managing operation finish ================')
+
+if not isinstance(nohup_file, str):
+    nohup_file.close()

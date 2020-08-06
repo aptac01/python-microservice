@@ -194,6 +194,22 @@ class MyLogger:
             print('No nohup file was found, make sure that it exists')
 
 
+def proc_status(pid):
+    """
+    Get process state by pid
+        R  running or runnable (on run queue)
+        D  uninterruptible sleep (usually IO)
+        S  interruptible sleep (waiting for an event to complete)
+        Z  defunct/zombie, terminated but not reaped by its parent
+        T  stopped, either by a job control signal or because
+           it is being traced
+    """
+    for line in open("/proc/%d/status" % pid).readlines():
+        if line.startswith("State:"):
+            return line.split(":", 1)[1].strip().split(' ')[0]
+    return None
+
+
 def is_port_open(ip, port, timeout=3):
     """
     Проверить, доступен ли удаленный адрес и порт для запроса.
