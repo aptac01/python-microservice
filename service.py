@@ -239,6 +239,24 @@ def start_service(consul_reg):
                          f'check {config["nohup_out_log"]} and {config["uwsgi"]["logto"]}', color_front='red')
 
 
+def kill_proccess_by_port():
+    """
+    Kill process by port from config using lsof utility
+    """
+
+    nohup_logger.log(f'trying to kill proccess by port', color_front='blue')
+
+    res = subprocess.run([config['lsof_command'], '-t', '-i', f'tcp:{config["SERVER_PORT"]}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    if res.stdout == b'':
+        nohup_logger.log(f'No service found on tcp:{config["SERVER_PORT"]}!', color_front='red')
+    else:
+        pids = res.stdout.split(b'\n')
+        res = subprocess.run(['kill', '-9', pids[0]], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        nohup_logger.log(f'killed proccess with pid {pids[0].decode("utf8")} '
+                         f'which was working on port {config["SERVER_PORT"]}', color_front='green')
+
+
 def stop_service(consul_reg):
     """
     Stop running service
@@ -246,27 +264,22 @@ def stop_service(consul_reg):
     """
     str(consul_reg)
 
-    # res = subprocess.run([config['lsof_command'], '-t', '-i', f'tcp:{config["SERVER_PORT"]}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # # if result.returncode == 0:
-    #
-    # if res.stdout == b'':
-    #     nohup_logger.log(f'No service found on tcp:{config["SERVER_PORT"]}!', color_front='red')
-    # else:
-    #     pids = res.stdout.split(b'\n')
-    #     res = subprocess.run(['kill', '-9', pids], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    #     nohup_logger.log(f'{res.returncode}, {res.stdout}, {res.stderr}')
-
     if os.path.exists(config['pid_file']):
         res = subprocess.Popen([config["uwsgi_exec"], '--stop', config['pid_file']],
                                stdout=nohup_file, stderr=nohup_file)
+
         # надо немного подождать, процесс умирает не мгновенно
-        nohup_logger.log(f'{res.returncode}, {res.stdout}, {res.stderr}', color_front='yellow')
+        sleep(1)
+        res.poll()
+
         if res.returncode == 0:
             nohup_logger.log('service stopped successfully', color_front='green')
         else:
-            nohup_logger.log('something went wrong while stopping service', color_front='red')
+            nohup_logger.log(f'something went wrong while stopping service, check {config["nohup_out_log"]}', color_front='red')
+            kill_proccess_by_port()
     else:
-        nohup_logger.log('service is not running, no need to stop it', color_front='yellow')
+        nohup_logger.log('did not find pid file', color_front='yellow')
+        kill_proccess_by_port()
 
 
 if args.action == 'start':
