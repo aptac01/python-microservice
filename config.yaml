@@ -14,7 +14,7 @@ x: 22.5
 
 # пути, которые нужно настроить при очередном развертывании
 # переменная  | название метки | значение
-api_directory:            &api /home/user/python_microservice
+api_directory:            &api /home/aptac01/python_microservice
 env_directory:            &env !join [*api, /env]
 uwsgi_exec:                    !join [*env, /bin/uwsgi]
 env_python_exec:               !join [*env, /bin/python]
