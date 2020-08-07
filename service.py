@@ -200,12 +200,12 @@ for arg_from_user in args_from_user:
 
 nohup_logger.log(f'Got these args: {args_from_user_text}', color_front='yellow')
 nohup_logger.log(f'Timestamp: {str(datetime.datetime.now())}', color_front='light blue')
-result = subprocess.run(['git', 'gegegeg', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+result = subprocess.run(['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 if result.returncode == 0:
     nohup_logger.log(f'Current hash in GIT: {result.stdout.decode("utf8")}', color_front='light blue')  # todo после этого сообщения в консоли пустая строка, надо разобраться что за дела
 else:
     nohup_logger.log(f'something went wrong with git, check it out:\n---\n{result.stderr.decode("utf8")}\n==='
-                     f'\n---\n{result.stdout.decode("utf8")}\n===', color_front='red') # todo FIX разобраться почему не работает
+                     f'\n---\n{result.stdout.decode("utf8")}\n===', color_front='red')  # todo FIX разобраться почему не работает
 
 
 def start_service(consul_reg):
@@ -239,11 +239,40 @@ def start_service(consul_reg):
                          f'check {config["nohup_out_log"]} and {config["uwsgi"]["logto"]}', color_front='red')
 
 
+def stop_service(consul_reg):
+    """
+    Stop running service
+    todo: %in progress%
+    """
+    str(consul_reg)
+
+    # res = subprocess.run([config['lsof_command'], '-t', '-i', f'tcp:{config["SERVER_PORT"]}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # # if result.returncode == 0:
+    #
+    # if res.stdout == b'':
+    #     nohup_logger.log(f'No service found on tcp:{config["SERVER_PORT"]}!', color_front='red')
+    # else:
+    #     pids = res.stdout.split(b'\n')
+    #     res = subprocess.run(['kill', '-9', pids], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    #     nohup_logger.log(f'{res.returncode}, {res.stdout}, {res.stderr}')
+
+    if os.path.exists(config['pid_file']):
+        res = subprocess.Popen([config["uwsgi_exec"], '--stop', config['pid_file']],
+                               stdout=nohup_file, stderr=nohup_file)
+        # надо немного подождать, процесс умирает не мгновенно
+        nohup_logger.log(f'{res.returncode}, {res.stdout}, {res.stderr}', color_front='yellow')
+        if res.returncode == 0:
+            nohup_logger.log('service stopped successfully', color_front='green')
+        else:
+            nohup_logger.log('something went wrong while stopping service', color_front='red')
+    else:
+        nohup_logger.log('service is not running, no need to stop it', color_front='yellow')
+
+
 if args.action == 'start':
     start_service(args.consul)
 elif args.action == 'stop':
-    pass
-# todo: stop service
+    stop_service(args.consul)
 
 nohup_logger.log('================= Service managing operation finish ================')
 
