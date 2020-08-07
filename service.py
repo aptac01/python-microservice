@@ -95,11 +95,11 @@ with opened_config_file as stream:
 try:
     nohup_file = open(config['nohup_out_log'], 'a+')
 except FileNotFoundError:
-    nohup_file = 'no_file'
+    nohup_file = config['nohup_out_log']
 except OSError:
-    nohup_file = 'no_file'
+    nohup_file = config['nohup_out_log']
 
-nohup_logger.set_file(nohup_file)
+nohup_logger.set_params(file = nohup_file)
 
 # nohup_logger.log(f'running from :{cnfg}', color_front='yellow')
 # nohup_logger.log(f'config file is at {config_filename}', color_front='yellow')

@@ -24,6 +24,12 @@ class MyLogger:
         Инициализирует логгер, запоминая файл, куда пишутся логи
         """
         self.file = file
+        
+        if self.file is not None:
+            self.show_file_warning = True
+        else:
+            self.show_file_warning = False
+            
         self.FOREGROUND = {
              'black':         30,
              'red':           31,
@@ -61,11 +67,19 @@ class MyLogger:
             'white':          107,
         }
 
-    def set_file(self, file):
+    def set_params(self, **kwargs):
         """
-        Установить внутреннюю ссылку на файл
+        Установить внутренние параметры
         """
-        self.file = file
+        if 'file' in kwargs:
+	        self.file = kwargs['file']
+	        
+        if 'show_file_warning' in kwargs:
+            self.show_file_warning = kwargs['show_file_warning']
+        elif self.file is not None:
+            self.show_file_warning = True
+        else:
+            self.show_file_warning = False
 
     # noinspection PyPep8Naming
     def log(self, msg, options=None, **kwargs):
@@ -190,8 +204,8 @@ class MyLogger:
                 self.file.write(colored_msg + msg_ending)
             else:
                 self.file.write(msg + msg_ending)
-        else:
-            print('No nohup file was found, make sure that it exists')
+        elif self.show_file_warning:
+            print(f'No nohup file was found ({self.file}), make sure that it exists')
 
 
 def proc_status(pid):
