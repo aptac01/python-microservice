@@ -25,8 +25,14 @@ from service_manager_lib import get_prometheus_metric_labels, method
 app = Flask(__name__)
 
 # --------------- app config ---------------
-app.config.from_object(os.environ['APP_SETTINGS'])
-CONSUL_NAME = app.config['CONSUL_NAME']
+if 'APP_SETTINGS' in os.environ:
+    app.config.from_object(os.environ['APP_SETTINGS'])
+    CONSUL_NAME = app.config['CONSUL_NAME']
+else:
+    raise 'нет конфига!'
+# парсинг ямловского конфига можно вынести в service_manager_lib функцией или классом
+# а потом импортировать его в стартере и импортировать его тут
+    app.config.update({})
 # set flask's config
 # app.config.update(config)
 

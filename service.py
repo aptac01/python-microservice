@@ -202,7 +202,8 @@ nohup_logger.log(f'Got these args: {args_from_user_text}', color_front='yellow')
 nohup_logger.log(f'Timestamp: {str(datetime.datetime.now())}', color_front='light blue')
 result = subprocess.run(['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 if result.returncode == 0:
-    nohup_logger.log(f'Current hash in GIT: {result.stdout.decode("utf8")}', color_front='light blue')  # todo после этого сообщения в консоли пустая строка, надо разобраться что за дела
+    git_hash = result.stdout.decode("utf8").replace('\n', '')
+    nohup_logger.log(f'Current hash in GIT: {git_hash}', color_front='light blue')
 else:
     nohup_logger.log(f'something went wrong with git, check it out:\n---\n{result.stderr.decode("utf8")}\n==='
                      f'\n---\n{result.stdout.decode("utf8")}\n===', color_front='red')  # todo FIX разобраться почему не работает
