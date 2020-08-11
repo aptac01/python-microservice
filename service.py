@@ -90,7 +90,7 @@ with opened_config_file as stream:
 
 # at this point config should be dictionary
 
-# trying to open nohup.out file and additionally write logs to it
+# trying to open nohup.out file and if it opens - write logs to it
 # in that case, no file - no big deal
 try:
     nohup_file = open(config['nohup_out_log'], 'a+')
@@ -191,6 +191,8 @@ args = parser.parse_args()
 #     nohup_logger.log(f'IT\'S A TRAP!!')
 
 nohup_logger.log('----------------- Service managing operation start -----------------')
+# todo: запомнить текущую директорию
+os.chdir(config['api_directory'])
 
 args_from_user = sys.argv
 del args_from_user[0]
@@ -215,7 +217,6 @@ def start_service(consul_reg):
     todo: %in progress%
     """
 
-    os.chdir(config['api_directory'])
     str(consul_reg)
 
     # res = os.system(
@@ -227,6 +228,7 @@ def start_service(consul_reg):
                             ],
                            stdout=nohup_file,
                            stderr=nohup_file)
+    nohup_logger.log(f'res: {res.returncode}')
 
     nohup_logger.log('waiting a bit to see if service is working or not...', color_front='dark gray')
     sleep(3)
@@ -238,6 +240,8 @@ def start_service(consul_reg):
     else:
         nohup_logger.log(f'Something went wrong, uwsgi master pid: {res.pid}, it exited with code: {res.returncode}, '
                          f'check {config["nohup_out_log"]} and {config["uwsgi"]["logto"]}', color_front='red')
+
+    # todo: разобраться почему не определяется запущенный сервис
 
 
 def kill_proccess_by_port():
@@ -288,6 +292,7 @@ if args.action == 'start':
 elif args.action == 'stop':
     stop_service(args.consul)
 
+# todo: вернуться в запомненную директорию
 nohup_logger.log('================= Service managing operation finish ================')
 
 if not isinstance(nohup_file, str):
