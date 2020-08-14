@@ -72,8 +72,8 @@ class MyLogger:
         Установить внутренние параметры
         """
         if 'file' in kwargs:
-	        self.file = kwargs['file']
-	        
+            self.file = kwargs['file']
+
         if 'show_file_warning' in kwargs:
             self.show_file_warning = kwargs['show_file_warning']
         elif self.file is not None:

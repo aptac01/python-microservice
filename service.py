@@ -99,7 +99,7 @@ except FileNotFoundError:
 except OSError:
     nohup_file = config['nohup_out_log']
 
-nohup_logger.set_params(file = nohup_file)
+nohup_logger.set_params(file=nohup_file)
 
 # nohup_logger.log(f'running from :{cnfg}', color_front='yellow')
 # nohup_logger.log(f'config file is at {config_filename}', color_front='yellow')
@@ -191,7 +191,9 @@ args = parser.parse_args()
 #     nohup_logger.log(f'IT\'S A TRAP!!')
 
 nohup_logger.log('----------------- Service managing operation start -----------------')
-# todo: запомнить текущую директорию
+
+# memorizing current directory to return to it later
+current_working_directory = os.getcwd()
 os.chdir(config['api_directory'])
 
 args_from_user = sys.argv
@@ -265,7 +267,7 @@ def kill_proccess_by_port():
 def stop_service(consul_reg):
     """
     Stop running service
-    todo: %in progress%
+    todo: %in progress% не забудь сделать удаление мусора после остановки или рестарта
     """
     str(consul_reg)
 
@@ -292,7 +294,8 @@ if args.action == 'start':
 elif args.action == 'stop':
     stop_service(args.consul)
 
-# todo: вернуться в запомненную директорию
+# changing current directory back
+os.chdir(current_working_directory)
 nohup_logger.log('================= Service managing operation finish ================')
 
 if not isinstance(nohup_file, str):
