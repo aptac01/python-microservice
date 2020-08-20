@@ -32,7 +32,7 @@ else:
     raise 'нет конфига!'
 # парсинг ямловского конфига можно вынести в service_manager_lib функцией или классом
 # а потом импортировать его в стартере и импортировать его тут
-    app.config.update({})
+#    app.config.update({})
 # set flask's config
 # app.config.update(config)
 

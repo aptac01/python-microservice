@@ -210,8 +210,11 @@ if result.returncode == 0:
     nohup_logger.log(f'Current hash in GIT: {git_hash}', color_front='light blue')
 else:
     nohup_logger.log(f'something went wrong with git, check it out:\n---\n{result.stderr.decode("utf8")}\n==='
-                     f'\n---\n{result.stdout.decode("utf8")}\n===', color_front='red')  # todo FIX разобраться почему не работает
+                     f'\n---\n{result.stdout.decode("utf8")}\n===', color_front='red')  # todo FIX разобраться почему не работает и починить
 
+# todo: Не забудь заменить все sleep(x) на проверку с циклицеским ожиданием (с ограничением сколько-то секунд, сколько конкретно секунд - вынести параметр в конфиг)
+#  не забудь перенести весь остальной функционал из service_manager2.sh
+#  отрефакторить stop и kill_proccess_by_port
 
 def start_service(consul_reg):
     """
@@ -251,7 +254,7 @@ def kill_proccess_by_port():
     Kill process by port from config using lsof utility
     """
 
-    nohup_logger.log(f'trying to kill proccess by port', color_front='blue')
+    nohup_logger.log(f'trying to kill proccess by port', color_front='light blue')
 
     res = subprocess.run([config['lsof_command'], '-t', '-i', f'tcp:{config["SERVER_PORT"]}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
