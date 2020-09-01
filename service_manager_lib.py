@@ -10,26 +10,27 @@
   * сами тесты (но это временно)
   * частоиспользуемые в разных скриптах вещи
   * сами отдельные скрипты (а это не временно)
+
+todo: translate this docstring after service.py (aka service_manager3) is ready
 """
 
 
 class MyLogger:
     """
-    Обычный логгер, показывает сообщения на экране и пишет их в файл.
-    Здесь еще будут изменения
+    My approach on logging, prints messages on screen and writes them in file
     """
 
     def __init__(self, file=None):
         """
-        Инициализирует логгер, запоминая файл, куда пишутся логи
+        Initializes logger, optionally setting file, to which logs are written
         """
         self.file = file
-        
+
         if self.file is not None:
             self.show_file_warning = True
         else:
             self.show_file_warning = False
-            
+
         self.FOREGROUND = {
              'black':         30,
              'red':           31,
@@ -85,20 +86,21 @@ class MyLogger:
     def log(self, msg, options=None, **kwargs):
         """
         Напечатать msg на экране и записать его в файл. Опционально, текст можно раскрасить.
+        Print msg on screen and write it to file. Optionally, you can paint your text.
 
         Args:
-            msg (str): сообщение
-            options (dict): массив опций для настройки сообщения
-                newline (bool): при записи в файл не добавлять '\n' в конец msg, по умолчанию - false
-                color_pieces (list): массив покрашенных строк
-                        Если цвет не из разрешенного множества - этот цвет не будет применён.
-                        Если colored_text не найден в msg - ничего не делаем
-                    color_front (str): цвет текста (см. self.FOREGROUND)
-                    color_back (str): цвет фона (см. self.BACKGROUND)
-                    colored_text (str): кусочек текста, который нужно покрасить, regex
+            msg (str): message
+            options (dict): array of options to customize message
+                newline (bool): when writing to file, do not add '\n' in the end of msg, default - false
+                color_pieces (list): array of colored rows
+                        If color not from allowed list - it will not be applied
+                        If colored_text is not found in msg - do nothing
+                    color_front (str): text color (look self.FOREGROUND)
+                    color_back (str): background color (look self.BACKGROUND)
+                    colored_text (str): piece of text, that needs to be painted, regex
             **kwargs:
-                color_front(str): цвет текста, если передан - всё сообщение будет покрашено в этот цвет
-                color_back(str): цвет фона, если передан - всё сообщение будет покрашено в этот цвет
+                color_front(str): color of text, if present - will be applied to whole msg
+                color_back(str): color of background, if present - will be applied to whole msg
         """
         import os
 
@@ -208,6 +210,62 @@ class MyLogger:
             print(f'No nohup file was found ({self.file}), make sure that it exists')
 
 
+def join(loader, node):
+    """
+    Define custom yaml construction named join
+    needed in parse_config
+    more info: https://stackoverflow.com/a/57327330/8700211
+    """
+    seq = loader.construct_sequence(node)
+    return ''.join([str(i) for i in seq])
+
+
+def parse_config(config_file, logger=False):
+    """
+    Parse config with specified path. Returns dict with resulting params.
+
+    config_file(string): path of the config file
+    logger(MyLogger): logger object, in case something goes wrong
+    """
+    import os
+    import sys
+    import yaml
+
+    # registering the custom tag handler
+    yaml.add_constructor('!join', join)
+
+    # no config file - no bueno
+    try:
+        opened_config_file = open(config_file, 'r')
+    except FileNotFoundError:
+        if logger:
+            logger.log(f'Couldn\'t find config file! Make sure {config_file} exists; Exiting...',
+                       color_front='red')
+        sys.exit(1)
+
+    # parsing config
+    with opened_config_file as stream:
+        try:
+            # that's the intended ("proper") way of parsing yaml from untrusted source, but since we are expecting our
+            # user to be somewhat experienced and trustworthy, we can afford luxury of not giving a fuck
+            # config = yaml.safe_load(stream, Loader=yaml.Loader)
+            config = yaml.load(stream, Loader=yaml.Loader)
+        except yaml.YAMLError as exc:
+            # but still, if something goes wrong - no bueno
+            if logger:
+                logger.log(str(exc))
+            sys.exit(1)
+
+    # sometimes env-variables are needed, so, we set them up from a list
+    if 'env_vars' in config:
+        for var in config['env_vars']:
+            os.environ[var] = config[var]
+
+    # at this point config should be dictionary
+
+    return config
+
+
 def proc_status(pid):
     """
     Get process state by pid
@@ -226,10 +284,9 @@ def proc_status(pid):
 
 def is_port_open(ip, port, timeout=3):
     """
-    Проверить, доступен ли удаленный адрес и порт для запроса.
+    Check, if given address and port are available.
    
-    timeout (int): максимум времени на попытку коненкта, в секундах
-        если за это время ответа нет - считается что порт закрыт
+    timeout (int): Max time to connect, seconds. If there is no answer in that time - we presume that port is closed.
     """
 
     import socket
@@ -249,7 +306,7 @@ def is_port_open(ip, port, timeout=3):
 
 def connect_to_consul(consul_address, consul_port, logger):
     """
-    Приконнектиться к консулу, или показать ошибку
+    Connect to given consul instance or log an error
     """
 
     import consul
@@ -258,7 +315,7 @@ def connect_to_consul(consul_address, consul_port, logger):
         logger.log(f"No address or port, exiting doing nothing")
         return None
 
-    if not(is_port_open(consul_address, consul_port)):
+    if not (is_port_open(consul_address, consul_port)):
         logger.log(f"Error connecting consul on {consul_address}:{consul_port}: address is not responding")
         return None
     try:
@@ -272,7 +329,7 @@ def connect_to_consul(consul_address, consul_port, logger):
 
 def check_service(service_id, consul_address, consul_port, logger):
     """
-    Проверить регистрацию сервиса в консуле
+    Check if service with given id registered in consul
     """
 
     c = connect_to_consul(consul_address, consul_port, logger)
@@ -287,7 +344,6 @@ def check_service(service_id, consul_address, consul_port, logger):
         index, data = c.catalog.service(service)
 
         for s_data in data:
-
             # s_data['ServiceName'],
             # s_data['ServiceID'],
             # s_data['ServiceAddress'],
@@ -307,7 +363,7 @@ def check_service(service_id, consul_address, consul_port, logger):
 
 def register_service(service, consul_address, consul_port, logger):
     """
-    Зарегистрировать сервис в консуле
+    Register given service in consul
     """
 
     from consul.base import Check
@@ -334,7 +390,7 @@ def register_service(service, consul_address, consul_port, logger):
 
 def deregister_service(service_id, consul_address, consul_port, logger):
     """
-    Дерегистрировать сервис из консула
+    Deregister service with given id from consul
     """
 
     c = connect_to_consul(consul_address, consul_port, logger)
@@ -346,7 +402,7 @@ def deregister_service(service_id, consul_address, consul_port, logger):
 
 def send_request(method_name, params, url, logger, request_id=None):
     """
-    Отправить запрос с указанными параметрами и вернуть ответ (или ошибку).
+    Send request with given params and return response (or an error)
     """
 
     import requests
@@ -392,6 +448,7 @@ def get_prometheus_metric_labels(text_metrics):
     добавить в каждую метрику тэг error, который равен false если status есть и
         равен одному из (200, 308), или true если status есть и не равен одному из (200, 308),
     запаковывать dict обратно "как было"
+    todo: refactor prometheus metrics export and translate doctring if needed
     """
     from ast import literal_eval
     import re
@@ -452,7 +509,7 @@ def method(flask_request_obj):
     Сгруппировать метрики для prometheus по названию поля method из запроса.
     Непонятно как группировать вызовы нескольких разных методов batch-запросами,
     поэтому берем название метода из первого объекта - в большинстве случаев он будет единственный.
-
+    todo: refactor prometheus metrics export and translate doctring if needed
     """
 
     if isinstance(flask_request_obj.json, list):
@@ -475,9 +532,9 @@ def method(flask_request_obj):
 
 # noinspection PyPep8Naming
 def execute_relog(relog_fl):
-    """ 
-    Минифицировать и отсортировать логи сервиса (первичные), вывести отчет о проделанной работе
-    Функция-скрипт
+    """
+    Minimize and sort service logs (files from uwsgi) and show report with details.
+    Script-function
     """
 
     import os
@@ -546,9 +603,11 @@ def execute_relog(relog_fl):
     timestamp_for_file = datetime.datetime.now().strftime(
         '[{[%d-%m-%Y %H:%M:%S]}] - Performing relog'
     )
-    internal_errors_log.write(timestamp_for_file + '. Those are internal errors, they are caught and returned to clients, usually - no big deal.\n')
+    internal_errors_log.write(
+        timestamp_for_file + '. Those are internal errors, they are caught and returned to clients, usually - no big deal.\n')
     exceptions_log.write(timestamp_for_file + '. Those are uncaught exceptions, you don\'t want these.\n')
-    exceptions_log.write('WARNING!!11!1 Timestamp before each line here - isn\'t exact time of exception, it is a previous INFO message\'s timestamp, so DO NOT believe in that time, it\'s just for convenience!!\n')
+    exceptions_log.write(
+        'WARNING!!11!1 Timestamp before each line here - isn\'t exact time of exception, it is a previous INFO message\'s timestamp, so DO NOT believe in that time, it\'s just for convenience!!\n')
 
     exc_updated = False
     int_updated = False
@@ -607,7 +666,7 @@ def execute_relog(relog_fl):
             except_dicts.append(
                 {
                     'name': _log,
-                    'exception': str(type(e).__name__+':'+str(e))
+                    'exception': str(type(e).__name__ + ':' + str(e))
                 }
             )
 
@@ -615,7 +674,7 @@ def execute_relog(relog_fl):
         file_m_time = os.path.getmtime(_log)
         file_m_date = datetime.datetime.fromtimestamp(file_m_time)
         now_date = datetime.datetime.now()
-        delta = ((now_date - file_m_date).total_seconds())/60/60/24
+        delta = ((now_date - file_m_date).total_seconds()) / 60 / 60 / 24
         if delta > DELETE_LOGS_ENV:
             logfiles_deleted.append(file.name)
             os.remove(file.name)
@@ -659,10 +718,10 @@ def execute_relog(relog_fl):
 def test_api():
     """
     Проводит заданные тесты, выводит результаты на экран и в лог-файл
-    Функция-скрипт
+    Script-function
+    todo: translate doctring when done with refactoring this function
+    todo: формализовать выполнение тестов, а ввод самих тестов вынести в часть, относящуюся к сервису
     """
-
-    # todo: формализовать выполнение тестов, а ввод самих тестов вынести в часть, относящуюся к сервису
 
     import os
 
@@ -702,7 +761,8 @@ def test_api():
         res_consul = 'false'
         service_url = SERVICE_ADDR_CONF
 
-    logger_for_tests.log(f'Checking registration in consul: {SERVICE_NAME_ENV} on {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV} \n\
+    logger_for_tests.log(
+        f'Checking registration in consul: {SERVICE_NAME_ENV} on {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV} \n\
     result - {res_consul}, must be true on prod.')
 
     logger_for_tests.log(f'Testing {service_url}.')
@@ -769,8 +829,8 @@ def test_api():
 # noinspection PyPep8Naming,DuplicatedCode
 def register_in_consul():
     """
-    Регистрирует сервис в консуле, или выводит ошибку
-    Функция-скрипт
+    Registers service in consul or shows error
+    Script-function
     """
 
     import os
@@ -805,7 +865,7 @@ def register_in_consul():
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
 {SERVER_ADDRESS_ENV}:{SERVER_PORT_ENV}.')
 
-    if not(check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consulreg)):
+    if not (check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consulreg)):
 
         log_for_consulreg.log(f'{SERVICE_NAME_ENV} is not registered on \
 {CONSUL_ADDRESS_ENV}:{CONSUL_PORT_ENV} as \
@@ -839,8 +899,8 @@ def register_in_consul():
 # noinspection PyPep8Naming,DuplicatedCode
 def deregister_in_consul():
     """
-    Дерегистрирует сервис в консуле, или выводит ошибку
-    Функция-скрипт
+    Deregisters service from consul or shows error
+    Script-function
     """
 
     import os
@@ -867,7 +927,7 @@ def deregister_in_consul():
 
         deregister_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consuldereg)
 
-        if not(check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consuldereg)):
+        if not (check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consuldereg)):
 
             # дерегистрировали, всё ок
             log_for_consuldereg.log(f'{SERVICE_NAME_ENV} deregistered on \
@@ -893,8 +953,8 @@ def deregister_in_consul():
 # noinspection PyPep8Naming
 def check_consul_reg():
     """
-    Проверяет, зарегистрирован ли сервис, указанный в конфиге в консуле
-    Функция-скрипт
+    Checks if service specified in config is registered in consul
+    Script-function
     """
 
     import os
@@ -928,13 +988,13 @@ def check_consul_reg():
 
 def create_temp_dirs():
     """
-    Создать временные папки необходимые для функционирования сервиса
-    Функция-скрипт
+    Creates temporary folders needed by service
+    Script-function
     """
     import os
     from pathlib import Path
 
     # создаем папки для временных файлов
-    Path(os.environ['api_directory']+'/pfe_multiprocess_tmp').mkdir(parents=True, exist_ok=True)
-    Path(os.environ['api_directory']+'/log').mkdir(parents=True, exist_ok=True)
-    Path(os.environ['api_directory']+'/tmp').mkdir(parents=True, exist_ok=True)
+    Path(os.environ['api_directory'] + '/pfe_multiprocess_tmp').mkdir(parents=True, exist_ok=True)
+    Path(os.environ['api_directory'] + '/log').mkdir(parents=True, exist_ok=True)
+    Path(os.environ['api_directory'] + '/tmp').mkdir(parents=True, exist_ok=True)

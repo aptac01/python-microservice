@@ -23,6 +23,10 @@ prometheus_multiproc_dir:      !join [*api, /pfe_multiprocess_tmp]
 TMP_DIR:                  &tmp !join [*api, /tmp/]
 nohup_out_log:                 !join [*api, /log/nohup.out]
 
+# параметры, которые будут определены в env-переменные при парсинге конфига
+env_vars:
+     - prometheus_multiproc_dir
+
 # команда, lsof на конкретной машине, нужна для остановки сервиса без pid-файла
 lsof_command: lsof
 

@@ -8,7 +8,6 @@ Executable for managing service
 
 import os
 import sys
-import yaml
 import base64
 import argparse
 import datetime
@@ -16,16 +15,7 @@ import textwrap
 import subprocess
 from time import sleep
 from argparse import ArgumentParser
-from service_manager_lib import MyLogger, proc_status
-
-
-def join(loader, node):
-    """
-    Define custom yaml construction named join
-    more info: https://stackoverflow.com/a/57327330/8700211
-    """
-    seq = loader.construct_sequence(node)
-    return ''.join([str(i) for i in seq])
+from service_manager_lib import MyLogger, proc_status, parse_config
 
 
 # todo все эти комменты надо будет удалить
@@ -63,32 +53,8 @@ def join(loader, node):
 
 cnfg = os.path.dirname(os.path.abspath(__file__))
 config_filename = f'{cnfg}/config.yaml'
-
 nohup_logger = MyLogger()
-
-# registering the custom tag handler
-yaml.add_constructor('!join', join)
-
-# no config file - no bueno
-try:
-    opened_config_file = open(config_filename, 'r')
-except FileNotFoundError:
-    nohup_logger.log(f'Couldn\'t find config file! Make sure {config_filename} exists; Exiting...', color_front='red')
-    sys.exit(1)
-
-# parsing config
-with opened_config_file as stream:
-    try:
-        # that's the intended ("proper") way of parsing yaml from untrusted source, but since we are expecting our
-        # user to be somewhat experienced and trustworthy, we can afford luxury of not giving a fuck
-        # config = yaml.safe_load(stream, Loader=yaml.Loader)
-        config = yaml.load(stream, Loader=yaml.Loader)
-    except yaml.YAMLError as exc:
-        # but still, if something goes wrong - no bueno
-        nohup_logger.log(str(exc))
-        sys.exit(1)
-
-# at this point config should be dictionary
+config = parse_config(config_filename, nohup_logger)
 
 # trying to open nohup.out file and if it opens - write logs to it
 # in that case, no file - no big deal
@@ -215,6 +181,7 @@ else:
 # todo: Не забудь заменить все sleep(x) на проверку с циклицеским ожиданием (с ограничением сколько-то секунд, сколько конкретно секунд - вынести параметр в конфиг)
 #  не забудь перенести весь остальной функционал из service_manager2.sh
 #  отрефакторить stop и kill_proccess_by_port
+
 
 def start_service(consul_reg):
     """

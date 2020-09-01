@@ -19,22 +19,26 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from prometheus_flask_exporter.multiprocess import UWsgiPrometheusMetrics 
 from methods import ping_pong, invalid_parameters, parse_error
-from service_manager_lib import get_prometheus_metric_labels, method
+from service_manager_lib import get_prometheus_metric_labels, method, parse_config
 
 # --------------- flask      ---------------
 app = Flask(__name__)
 
 # --------------- app config ---------------
 if 'APP_SETTINGS' in os.environ:
+    # указание конфига для скрипта service_manager2.sh
     app.config.from_object(os.environ['APP_SETTINGS'])
     CONSUL_NAME = app.config['CONSUL_NAME']
 else:
-    raise 'нет конфига!'
-# парсинг ямловского конфига можно вынести в service_manager_lib функцией или классом
-# а потом импортировать его в стартере и импортировать его тут
-#    app.config.update({})
-# set flask's config
-# app.config.update(config)
+    # указание конфига для service.py
+    cnfg = os.path.dirname(os.path.abspath(__file__))
+    config_filename = f'{cnfg}/config.yaml'
+    config = parse_config(config_filename)
+    app.config.update(config)
+
+    CONSUL_NAME = app.config['SERVICE_NAME']
+
+
 
 # --------------- basic auth ---------------
 auth = HTTPBasicAuth()
