@@ -19,7 +19,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from prometheus_flask_exporter.multiprocess import UWsgiPrometheusMetrics 
 from methods import ping_pong, invalid_parameters, parse_error
-from service_manager_lib import get_prometheus_metric_labels, method, parse_config
+from service_manager_lib import get_prometheus_metric_labels, method, parse_config, is_iterable
 
 # --------------- flask      ---------------
 app = Flask(__name__)
@@ -37,8 +37,6 @@ else:
     app.config.update(config)
 
     CONSUL_NAME = app.config['SERVICE_NAME']
-
-
 
 # --------------- basic auth ---------------
 auth = HTTPBasicAuth()
@@ -213,6 +211,9 @@ def main_packet_handler(var_route):
             and isinstance(request_json, dict):
         
         request_json = [request_json]
+
+    if not is_iterable(request_json):
+        return jsonify(result_batch)
 
     for batch_elem in request_json:
 

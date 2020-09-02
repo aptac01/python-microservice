@@ -15,16 +15,21 @@ todo: translate this docstring after service.py (aka service_manager3) is ready
 """
 
 
+false_items = ('0', 0, False, 'false', 'False')
+true_items = ('1', 1, True, 'true', 'True')
+
+
 class MyLogger:
     """
     My approach on logging, prints messages on screen and writes them in file
     """
 
-    def __init__(self, file=None):
+    def __init__(self, **kwargs):
         """
         Initializes logger, optionally setting file, to which logs are written
         """
-        self.file = file
+        self.file = kwargs['file'] if 'file' in kwargs else None
+        self.config = kwargs['config'] if 'config' in kwargs else None
 
         if self.file is not None:
             self.show_file_warning = True
@@ -70,7 +75,7 @@ class MyLogger:
 
     def set_params(self, **kwargs):
         """
-        Установить внутренние параметры
+        Set internal parameters
         """
         if 'file' in kwargs:
             self.file = kwargs['file']
@@ -82,10 +87,12 @@ class MyLogger:
         else:
             self.show_file_warning = False
 
+        if 'config' in kwargs:
+            self.config = kwargs['config']
+
     # noinspection PyPep8Naming
     def log(self, msg, options=None, **kwargs):
         """
-        Напечатать msg на экране и записать его в файл. Опционально, текст можно раскрасить.
         Print msg on screen and write it to file. Optionally, you can paint your text.
 
         Args:
@@ -104,17 +111,17 @@ class MyLogger:
         """
         import os
 
-        COLOR_LOGS_SCREEN = os.environ.get('COLOR_LOGS_SCREEN')
-        if COLOR_LOGS_SCREEN in ('0', 0, False, 'false', 'False'):
+        COLOR_LOGS_SCREEN = self.config['COLOR_LOGS_SCREEN'] if self.config is not None else os.environ.get('COLOR_LOGS_SCREEN')
+        if COLOR_LOGS_SCREEN in false_items:
             COLOR_LOGS_SCREEN = False
         else:
             COLOR_LOGS_SCREEN = True
 
-        COLOR_LOGS_FILES = os.environ.get('COLOR_LOGS_FILES')
-        if COLOR_LOGS_FILES in ('0', 0, False, 'false', 'False'):
-            COLOR_LOGS_FILES = False
-        else:
+        COLOR_LOGS_FILES = self.config['COLOR_LOGS_FILES'] if self.config is not None else os.environ.get('COLOR_LOGS_FILES')
+        if COLOR_LOGS_FILES in true_items:
             COLOR_LOGS_FILES = True
+        else:
+            COLOR_LOGS_FILES = False
 
         options_default = {
             'newline': False,
@@ -234,13 +241,16 @@ def parse_config(config_file, logger=False):
     # registering the custom tag handler
     yaml.add_constructor('!join', join)
 
+    if not logger:
+        # default logger, that will write errors to screen
+        logger = MyLogger()
+
     # no config file - no bueno
     try:
         opened_config_file = open(config_file, 'r')
     except FileNotFoundError:
-        if logger:
-            logger.log(f'Couldn\'t find config file! Make sure {config_file} exists; Exiting...',
-                       color_front='red')
+        logger.log(f'Couldn\'t find config file! Make sure {config_file} exists; Exiting...',
+                   color_front='red')
         sys.exit(1)
 
     # parsing config
@@ -252,11 +262,10 @@ def parse_config(config_file, logger=False):
             config = yaml.load(stream, Loader=yaml.Loader)
         except yaml.YAMLError as exc:
             # but still, if something goes wrong - no bueno
-            if logger:
-                logger.log(str(exc))
+            logger.log(str(exc))
             sys.exit(1)
 
-    # sometimes env-variables are needed, so, we set them up from a list
+    # sometimes env-variables are needed, so, we set them up from a list, dedicated to storing names of such vars
     if 'env_vars' in config:
         for var in config['env_vars']:
             os.environ[var] = config[var]
@@ -280,6 +289,30 @@ def proc_status(pid):
         if line.startswith("State:"):
             return line.split(":", 1)[1].strip().split(' ')[0]
     return None
+
+
+def is_proc_status_fine(status):
+    """
+    Return true, if a proccess with given status is working and not stopped or killed
+    Return false otherwise
+    """
+    if status in ('R', 'D', 'S'):
+        return True
+    else:
+        return False
+
+
+def is_iterable(obj):
+    """
+    Return true if obj is iterable, false otherwise
+    """
+    # noinspection PyBroadException
+    try:
+        iter(obj)
+    except Exception:
+        return False
+    else:
+        return True
 
 
 def is_port_open(ip, port, timeout=3):
@@ -518,6 +551,7 @@ def method(flask_request_obj):
         request_body = flask_request_obj.json
 
     if ((flask_request_obj.method == "POST")
+            and (is_iterable(request_body))
             and ("method" in request_body)):
         method_str = request_body["method"]
         return f"{method_str}"
@@ -534,7 +568,7 @@ def method(flask_request_obj):
 def execute_relog(relog_fl):
     """
     Minimize and sort service logs (files from uwsgi) and show report with details.
-    Script-function
+    Script-function, service-manager2.sh specific
     """
 
     import os
@@ -546,7 +580,7 @@ def execute_relog(relog_fl):
 
     nohupFile = os.environ.get('nohup_out_log')
     nFile = open(nohupFile, 'a+')
-    logger_for_relog = MyLogger(nFile)
+    logger_for_relog = MyLogger(file=nFile)
 
     REFLOG_FILES_ENV = os.environ.get('RELOG_FILES')
 
@@ -718,7 +752,7 @@ def execute_relog(relog_fl):
 def test_api():
     """
     Проводит заданные тесты, выводит результаты на экран и в лог-файл
-    Script-function
+    Script-function, service-manager2.sh specific
     todo: translate doctring when done with refactoring this function
     todo: формализовать выполнение тестов, а ввод самих тестов вынести в часть, относящуюся к сервису
     """
@@ -737,7 +771,7 @@ def test_api():
 
     nohupFile = os.environ.get('nohup_out_log')
     nFile = open(nohupFile, "a+")
-    logger_for_tests = MyLogger(nFile)
+    logger_for_tests = MyLogger(file=nFile)
     color_scheme_green = {'color_pieces': [{'color_back': 'light green', 'colored_text': r'was it successful.:.{1,}'}]}
     color_scheme_red = {'color_pieces': [{'color_back': 'light red', 'colored_text': r'was it successful.:.{1,}'}]}
     # configFile = os.environ.get('config_filename')
@@ -830,7 +864,7 @@ def test_api():
 def register_in_consul():
     """
     Registers service in consul or shows error
-    Script-function
+    Script-function, service-manager2.sh specific
     """
 
     import os
@@ -846,7 +880,7 @@ def register_in_consul():
 
     nohupFile = os.environ.get('nohup_out_log')
     nFile = open(nohupFile, "a+")
-    log_for_consulreg = MyLogger(nFile)
+    log_for_consulreg = MyLogger(file=nFile)
     configFile = os.environ.get('config_filename')
 
     # noinspection PyDictCreation
@@ -900,7 +934,7 @@ def register_in_consul():
 def deregister_in_consul():
     """
     Deregisters service from consul or shows error
-    Script-function
+    Script-function, service-manager2.sh specific
     """
 
     import os
@@ -916,7 +950,7 @@ def deregister_in_consul():
 
     nohupFile = os.environ.get('nohup_out_log')
     nFile = open(nohupFile, "a+")
-    log_for_consuldereg = MyLogger(nFile)
+    log_for_consuldereg = MyLogger(file=nFile)
 
     # начинаем дерегистрацию
     if check_service(SERVICE_ID_ENV, CONSUL_ADDRESS_ENV, CONSUL_PORT_ENV, log_for_consuldereg):
@@ -954,7 +988,7 @@ def deregister_in_consul():
 def check_consul_reg():
     """
     Checks if service specified in config is registered in consul
-    Script-function
+    Script-function, service-manager2.sh specific
     """
 
     import os
@@ -969,7 +1003,7 @@ def check_consul_reg():
 
     nohupFile = os.environ.get('nohup_out_log')
     nFile = open(nohupFile, "a+")
-    log_for_consulcheck = MyLogger(nFile)
+    log_for_consulcheck = MyLogger(file=nFile)
 
     # noinspection PyBroadException
     try:
@@ -989,7 +1023,7 @@ def check_consul_reg():
 def create_temp_dirs():
     """
     Creates temporary folders needed by service
-    Script-function
+    Script-function, service-manager2.sh specific
     """
     import os
     from pathlib import Path

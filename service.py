@@ -9,13 +9,14 @@ Executable for managing service
 import os
 import sys
 import base64
+import requests
 import argparse
 import datetime
 import textwrap
 import subprocess
 from time import sleep
 from argparse import ArgumentParser
-from service_manager_lib import MyLogger, proc_status, parse_config
+from service_manager_lib import MyLogger, proc_status, is_proc_status_fine, parse_config
 
 
 # todo все эти комменты надо будет удалить
@@ -65,7 +66,7 @@ except FileNotFoundError:
 except OSError:
     nohup_file = config['nohup_out_log']
 
-nohup_logger.set_params(file=nohup_file)
+nohup_logger.set_params(file=nohup_file, config=config)
 
 # nohup_logger.log(f'running from :{cnfg}', color_front='yellow')
 # nohup_logger.log(f'config file is at {config_filename}', color_front='yellow')
@@ -189,8 +190,10 @@ def start_service(consul_reg):
     todo: %in progress%
     """
 
+    # to get rid of warning that param value is not used, gonna be fixed later
     str(consul_reg)
 
+    # starting proccess
     # res = os.system(
     #     f'nohup {config["uwsgi_exec"]} --ini {config["uwsgi"]["config_file"]} >> {config["nohup_out_log"]} 2>> {config["nohup_out_log"]} &')
     res = subprocess.Popen(['nohup',
@@ -200,20 +203,26 @@ def start_service(consul_reg):
                             ],
                            stdout=nohup_file,
                            stderr=nohup_file)
-    nohup_logger.log(f'res: {res.returncode}')
 
+    # temporary todo: refactor
     nohup_logger.log('waiting a bit to see if service is working or not...', color_front='dark gray')
     sleep(3)
     res.poll()
-    nohup_logger.log(f'res: {res.returncode}')
 
-    if res.returncode == 0:
-        nohup_logger.log('Looks like the app is running.', color_front='green')
+    # getting service status, if it's working as intended or not
+    uwsgi_master_proc = is_proc_status_fine(proc_status(res.pid))
+    request = requests.post('http://localhost:' + str(config['SERVER_PORT']) + '/ping', verify=False)
+    ping_endpoint = request.ok
+    if uwsgi_master_proc:
+        nohup_logger.log(f'uWSGI master process is running, pid: {res.pid}', color_front='green')
     else:
-        nohup_logger.log(f'Something went wrong, uwsgi master pid: {res.pid}, it exited with code: {res.returncode}, '
+        nohup_logger.log(f'Something went wrong while running uWSGI master pid: {res.pid}, '
                          f'check {config["nohup_out_log"]} and {config["uwsgi"]["logto"]}', color_front='red')
-
-    # todo: разобраться почему не определяется запущенный сервис
+    if ping_endpoint:
+        nohup_logger.log(f'/ping endpoint is ok, service should be alive', color_front='green')
+    else:
+        nohup_logger.log(f'/ping endpoint is dead, something went wrong, '
+                         f'check {config["nohup_out_log"]} and {config["uwsgi"]["logto"]}', color_front='red')
 
 
 def kill_proccess_by_port():
@@ -229,9 +238,11 @@ def kill_proccess_by_port():
         nohup_logger.log(f'No service found on tcp:{config["SERVER_PORT"]}!', color_front='red')
     else:
         pids = res.stdout.split(b'\n')
-        res = subprocess.run(['kill', '-9', pids[0]], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # res = subprocess.run(['kill', '-9', pids[0]], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(['kill', '-9', pids[0]], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         nohup_logger.log(f'killed proccess with pid {pids[0].decode("utf8")} '
                          f'which was working on port {config["SERVER_PORT"]}', color_front='green')
+        # todo: get operation result and get rid of warning about res var
 
 
 def stop_service(consul_reg):
