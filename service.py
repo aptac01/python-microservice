@@ -170,7 +170,7 @@ for arg_from_user in args_from_user:
 
 nohup_logger.log(f'Got these args: {args_from_user_text}', color_front='yellow')
 nohup_logger.log(f'Timestamp: {str(datetime.datetime.now())}', color_front='light blue')
-result = subprocess.run(['git', 'rev-pareee', 'HEAD'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+result = subprocess.run(['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 if result.returncode == 0:
     git_hash = result.stdout.decode("utf8").replace('\n', '')
     nohup_logger.log(f'Current hash in GIT: {git_hash}', color_front='light blue')
@@ -196,6 +196,7 @@ def start_service(consul_reg):
     Start service in background (as a daemon)
     todo: %in progress%
         make protection from starting 2 master-uwsgi instances
+        write port service is running on
     """
 
     # to get rid of warning that param value is not used, gonna be fixed later
