@@ -14,9 +14,8 @@ import argparse
 import datetime
 import textwrap
 import subprocess
-from time import sleep
 from argparse import ArgumentParser
-from service_manager_lib import MyLogger, proc_status, is_proc_status_fine, parse_config
+from service_manager_lib import MyLogger, proc_status, is_proc_status_fine, parse_config, cycle_with_limit
 
 
 # todo все эти комменты надо будет удалить
@@ -171,15 +170,23 @@ for arg_from_user in args_from_user:
 
 nohup_logger.log(f'Got these args: {args_from_user_text}', color_front='yellow')
 nohup_logger.log(f'Timestamp: {str(datetime.datetime.now())}', color_front='light blue')
-result = subprocess.run(['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+result = subprocess.run(['git', 'rev-pareee', 'HEAD'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 if result.returncode == 0:
     git_hash = result.stdout.decode("utf8").replace('\n', '')
     nohup_logger.log(f'Current hash in GIT: {git_hash}', color_front='light blue')
 else:
-    nohup_logger.log(f'something went wrong with git, check it out:\n---\n{result.stderr.decode("utf8")}\n==='
-                     f'\n---\n{result.stdout.decode("utf8")}\n===', color_front='red')  # todo FIX разобраться почему не работает и починить
+    # mylogger.log (пока что) коряво выводит крашенный многострочный текст, поэтому выводим в несколько строк
+    nohup_logger.log(f'something went wrong with git, check it out:', color_front='red')
+    nohup_logger.log('stderr:')
+    nohup_logger.log('---')
+    nohup_logger.log(f'{result.stderr.decode("utf-8")}')
+    nohup_logger.log('===')
+    nohup_logger.log('stdout:')
+    nohup_logger.log('---')
+    nohup_logger.log(f'{result.stdout.decode("utf-8")}')
+    nohup_logger.log('===')
 
-# todo: Не забудь заменить все sleep(x) на проверку с циклицеским ожиданием (с ограничением сколько-то секунд, сколько конкретно секунд - вынести параметр в конфиг)
+# todo:
 #  не забудь перенести весь остальной функционал из service_manager2.sh
 #  отрефакторить stop и kill_proccess_by_port
 
@@ -188,6 +195,7 @@ def start_service(consul_reg):
     """
     Start service in background (as a daemon)
     todo: %in progress%
+        make protection from starting 2 master-uwsgi instances
     """
 
     # to get rid of warning that param value is not used, gonna be fixed later
@@ -204,15 +212,28 @@ def start_service(consul_reg):
                            stdout=nohup_file,
                            stderr=nohup_file)
 
-    # temporary todo: refactor
     nohup_logger.log('waiting a bit to see if service is working or not...', color_front='dark gray')
-    sleep(3)
-    res.poll()
 
-    # getting service status, if it's working as intended or not
-    uwsgi_master_proc = is_proc_status_fine(proc_status(res.pid))
-    request = requests.post('http://localhost:' + str(config['SERVER_PORT']) + '/ping', verify=False)
-    ping_endpoint = request.ok
+    def check_service_started(res_loc):
+        """
+        Callback function to check if service has started
+        """
+        res_loc.poll()
+
+        # getting service status, if it's working as intended or not
+        uwsgi_master_proc_int = is_proc_status_fine(proc_status(res_loc.pid))
+        request = requests.post('http://localhost:' + str(config['SERVER_PORT']) + '/ping', verify=False)
+        ping_endpoint_int = request.ok
+
+        if uwsgi_master_proc_int and ping_endpoint_int:
+            return [True, uwsgi_master_proc_int, ping_endpoint_int]
+        else:
+            return [False, uwsgi_master_proc_int, ping_endpoint_int]
+
+    flags_after_action = cycle_with_limit(check_service_started, res, 0.3, 3)
+    uwsgi_master_proc = flags_after_action[1]
+    ping_endpoint = flags_after_action[2]
+
     if uwsgi_master_proc:
         nohup_logger.log(f'uWSGI master process is running, pid: {res.pid}', color_front='green')
     else:
@@ -238,11 +259,10 @@ def kill_proccess_by_port():
         nohup_logger.log(f'No service found on tcp:{config["SERVER_PORT"]}!', color_front='red')
     else:
         pids = res.stdout.split(b'\n')
-        # res = subprocess.run(['kill', '-9', pids[0]], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         subprocess.run(['kill', '-9', pids[0]], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
         nohup_logger.log(f'killed proccess with pid {pids[0].decode("utf8")} '
                          f'which was working on port {config["SERVER_PORT"]}', color_front='green')
-        # todo: get operation result and get rid of warning about res var
 
 
 def stop_service(consul_reg):
@@ -256,11 +276,23 @@ def stop_service(consul_reg):
         res = subprocess.Popen([config["uwsgi_exec"], '--stop', config['pid_file']],
                                stdout=nohup_file, stderr=nohup_file)
 
-        # надо немного подождать, процесс умирает не мгновенно
-        sleep(1)
-        res.poll()
+        nohup_logger.log('waiting for service to be killed...', color_front='dark gray')
 
-        if res.returncode == 0:
+        def check_service_killed(res_loc):
+            """
+            Callback function to check if service has really been killed
+            """
+            res_loc.poll()
+
+            if res_loc.returncode == 0:
+                return [True, res_loc.returncode]
+            else:
+                return [False, res_loc.returncode]
+
+        flags_after_action = cycle_with_limit(check_service_killed, res, 0.2, 5)
+        res_returncode = flags_after_action[1]
+
+        if res_returncode == 0:
             nohup_logger.log('service stopped successfully', color_front='green')
         else:
             nohup_logger.log(f'something went wrong while stopping service, check {config["nohup_out_log"]}', color_front='red')

@@ -179,8 +179,15 @@ class MyLogger:
 
                 # noinspection PyTypeChecker
                 resolved_string = re.findall(piece['colored_text'], colored_msg)
+                # print(f'resolved_string:{resolved_string}')
 
                 if len(resolved_string) > 0:
+                    # todo коряво печатаются многострочные цветные сообщения, надо пофиксить
+                    # for row in resolved_string:
+                    #     if row not in ('', ' ', None, resolved_string[0]):
+                    #         resolved_string[0] = resolved_string[0] + row
+                    # из-за этого не печатаются мультистрочные сообщения об ошибках(при выводе ошибки при исполнении гита)
+
                     resolved_string = resolved_string[0]
 
                     if piece["color_back"]:
@@ -273,6 +280,42 @@ def parse_config(config_file, logger=False):
     # at this point config should be dictionary
 
     return config
+
+
+def cycle_with_limit(callback_func, callback_args, seconds_between_tries=0.3, seconds_limit=7):
+    """
+    Call callback_func (with callback_args) every seconds_between_tries seconds, until seconds_limit passed.
+    Sleeps between tries.
+    callback_func should return list, in which first value must be bool, and if it's true
+     - cycle will be over before limit.
+    """
+
+    import sched
+    import time
+
+    counter = time.time()
+    callback_func_result = [True, ]
+
+    def do_stuff(sch):
+        """
+        execute users function
+        """
+
+        nonlocal callback_func_result
+
+        callback_func_result = callback_func(callback_args)
+
+        if (not callback_func_result[0]) \
+                and ((time.time() - counter) <= seconds_limit):
+            sch.enter(seconds_between_tries, 1, do_stuff, (sch, ))
+        else:
+            return
+
+    s = sched.scheduler(time.time, time.sleep)
+    s.enter(seconds_between_tries, 1, do_stuff, (s, ))
+    s.run()
+
+    return callback_func_result
 
 
 def proc_status(pid):
