@@ -175,16 +175,8 @@ if result.returncode == 0:
     git_hash = result.stdout.decode("utf8").replace('\n', '')
     nohup_logger.log(f'Current hash in GIT: {git_hash}', color_front='light blue')
 else:
-    # mylogger.log (пока что) коряво выводит крашенный многострочный текст, поэтому выводим в несколько строк
-    nohup_logger.log(f'something went wrong with git, check it out:', color_front='red')
-    nohup_logger.log('stderr:')
-    nohup_logger.log('---')
-    nohup_logger.log(f'{result.stderr.decode("utf-8")}')
-    nohup_logger.log('===')
-    nohup_logger.log('stdout:')
-    nohup_logger.log('---')
-    nohup_logger.log(f'{result.stdout.decode("utf-8")}')
-    nohup_logger.log('===')
+    nohup_logger.log(f'something went wrong with git, check it out:\n---\n{result.stderr}\n==='
+                     f'\n---\n{result.stdout}\n===', color_front='red')
 
 # todo:
 #  не забудь перенести весь остальной функционал из service_manager2.sh

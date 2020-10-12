@@ -109,6 +109,7 @@ class MyLogger:
                 color_front(str): color of text, if present - will be applied to whole msg
                 color_back(str): color of background, if present - will be applied to whole msg
         """
+        # todo: refactor this monstrosity
         import os
 
         COLOR_LOGS_SCREEN = self.config['COLOR_LOGS_SCREEN'] if self.config is not None else os.environ.get('COLOR_LOGS_SCREEN')
@@ -172,6 +173,7 @@ class MyLogger:
                     color_pieces_local.append(merged_color_piece)
 
             colored_msg = msg
+
             for piece in color_pieces_local:
 
                 if piece['colored_text'] == '':
@@ -179,37 +181,53 @@ class MyLogger:
 
                 # noinspection PyTypeChecker
                 resolved_string = re.findall(piece['colored_text'], colored_msg)
-                # print(f'resolved_string:{resolved_string}')
 
-                if len(resolved_string) > 0:
-                    # todo коряво печатаются многострочные цветные сообщения, надо пофиксить
-                    # for row in resolved_string:
-                    #     if row not in ('', ' ', None, resolved_string[0]):
-                    #         resolved_string[0] = resolved_string[0] + row
-                    # из-за этого не печатаются мультистрочные сообщения об ошибках(при выводе ошибки при исполнении гита)
+                if len(resolved_string) < 0:
+                    continue
 
-                    resolved_string = resolved_string[0]
+                elif len(resolved_string) > 1:
+                    # gluing multirows all together as separate rows
+                    for row in resolved_string:
+                        if row not in ('', ' ', None, resolved_string[0]):
+                            resolved_string[0] += '\n' + row
 
-                    if piece["color_back"]:
-                        # noinspection PyTypeChecker
-                        colored_msg = re.sub(piece['colored_text'], '\033[' + str(
-                            self.BACKGROUND[piece["color_back"]]) + 'm' + resolved_string + '\033[49m', colored_msg)
-                    else:
-                        colored_msg = colored_msg
+                resolved_string = resolved_string[0]
 
-                    if piece["color_front"]:
-                        # noinspection PyTypeChecker
-                        colored_msg = re.sub(piece['colored_text'], '\033[' + str(
-                            self.FOREGROUND[piece["color_front"]]) + 'm' + resolved_string + '\033[39m', colored_msg)
-                    else:
-                        colored_msg = colored_msg
+                # when printing stuff from stderr and stdout you can encounter some weird shit
+                # like bytes strings placed into regular string
+                resolved_string = re.sub(r'b[\"\'](.*)[\"\']', '\\1', resolved_string)
+
+                if piece["color_back"]:
+                    # noinspection PyTypeChecker
+                    colored_msg = re.sub(piece['colored_text'],
+                                         '\033[' + str(self.BACKGROUND[piece["color_back"]]) + 'm'
+                                         + resolved_string
+                                         + '\033[49m',
+                                         colored_msg,
+                                         1,
+                                         re.DOTALL)
+                else:
+                    colored_msg = colored_msg
+
+                if piece["color_front"]:
+
+                    # noinspection PyTypeChecker
+                    colored_msg = re.sub(piece['colored_text'],
+                                         '\033[' + str(self.FOREGROUND[piece["color_front"]]) + 'm'
+                                         + resolved_string
+                                         + '\033[39m',
+                                         colored_msg,
+                                         1,
+                                         re.DOTALL)
+                else:
+                    colored_msg = colored_msg
 
         if COLOR_LOGS_SCREEN and colored_msg:
             print(colored_msg)
         else:
             print(msg)
 
-        # печатаем в файл только если это действительно файл
+        # printing to file only if it exists
         if 'name' in dir(self.file) and os.path.isfile(self.file.name):
 
             msg_ending = ''
