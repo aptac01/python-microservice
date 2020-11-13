@@ -297,8 +297,15 @@ def stop_service(consul_reg):
 
 if args.action == 'start':
     start_service(args.consul)
+
 elif args.action == 'stop':
     stop_service(args.consul)
+
+elif args.action == 'restart':
+    # TODO restart работает через раз из-за занятого порта
+    #   как будто процес начинает потухать и мы начинаем считать его умершим слишком рано
+    stop_service(args.consul)
+    start_service(args.consul)
 
 # changing current directory back
 os.chdir(current_working_directory)

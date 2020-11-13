@@ -21,7 +21,7 @@ true_items = ('1', 1, True, 'true', 'True')
 
 class MyLogger:
     """
-    My approach on logging, prints messages on screen and writes them in file
+    My approach on logging, prints messages on screen and writes them to file
     """
 
     def __init__(self, **kwargs):
@@ -346,6 +346,12 @@ def proc_status(pid):
         T  stopped, either by a job control signal or because
            it is being traced
     """
+    # TODO можно попытаться заменить эту штуку на такое:
+    # import psutil
+    # p = psutil.Proccess(MyPid)
+    # p.status
+    # ошибка только при рестарте:
+    # FileNotFoundError: [Errno 2] No such file or directory: '/proc/%d/status'
     for line in open("/proc/%d/status" % pid).readlines():
         if line.startswith("State:"):
             return line.split(":", 1)[1].strip().split(' ')[0]

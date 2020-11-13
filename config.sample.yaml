@@ -1,0 +1,76 @@
+# FLASK ПРИНИМАЕТ ПЕРЕМЕННЫЕ ДЛЯ СВОЕГО КОНФИГА ТОЛЬКО В ВЕРХНЕМ РЕГИСТРЕ
+# эта часть в большинстве ситуаций не меняется, но SECRET_KEY на каждом деплое должен быть уникальным
+DEBUG:         false
+TESTING:       false
+CSRF_ENABLED:  true
+# https://stackoverflow.com/questions/14853694/python-jsonify-dictionary-in-utf-8",
+JSON_AS_ASCII: false
+# python3.x binascii.hexlify(os.urandom(24))
+SECRET_KEY:    d17c571102250cec991fb6393e417d767cdee3ca537cf43a
+# testing
+x: 22.5
+
+# всё, что дальше - уникально для каждого приложения
+
+# пути, которые нужно настроить при очередном развертывании
+# переменная  | название метки | значение
+api_directory:            &api /home/aptac01/python_microservice
+env_directory:            &env !join [*api, /env]
+uwsgi_exec:                    !join [*env, /bin/uwsgi]
+env_python_exec:               !join [*env, /bin/python]
+pid_file:                 &pid !join [*api, /tmp/example_api-master.pid]
+prometheus_multiproc_dir:      !join [*api, /pfe_multiprocess_tmp]
+TMP_DIR:                  &tmp !join [*api, /tmp/]
+nohup_out_log:                 !join [*api, /log/nohup.out]
+
+# параметры, которые будут определены в env-переменные при парсинге конфига
+env_vars:
+     - prometheus_multiproc_dir
+
+# команда, lsof на конкретной машине, нужна для остановки сервиса без pid-файла
+lsof_command: lsof
+
+DB_NAME: DB_NAME
+
+# настройки на разные контура
+CONSUL_ADDRESS: 10.10.10.210
+CONSUL_PORT:    8500
+SERVER_ADDRESS: localhost
+SERVER_PORT:    1234
+SERVICE_NAME:   example
+SERVICE_ID:     example-1
+
+# настройки для relog
+# регулярное, выражение которое кодирует названия логов, обрабатываемые командой relog
+RELOG_FILES:        'example_uwsgi\.log(\.\d+)*'
+# удалять, логи старше, чем столько дней,
+DELETE_LOGS_DAYS:   3
+# удалять, или нет вторичные логи, если не был передан параметр в cli, флаг --relog,
+DELETE_RELOG_FILES: 1
+
+# стучаться, в консул или нет, если не был передан параметр в cli, флаг --consul,
+CONSUL_REG:         0
+
+# красить, ли логи при выводе на экран,
+COLOR_LOGS_SCREEN:  1
+# красить, ли логи при выводе в файлы,
+COLOR_LOGS_FILES:   0
+
+# настроки, для конфига uwsgi
+# каждый параметр будет передан в конфиг uwsgi
+uwsgi:
+     config_file:     !join [*tmp, uwsgi.ini]
+     chdir:           *api
+     virtualenv:      *env
+     pythonpath:      !join [*env, /bin]
+     module:          app
+     callable:        app
+     processes:       2
+     http:            0.0.0.0:1234
+     master:          true
+     pidfile:         *pid
+     max_requests:    5000
+     disable_logging: true
+     logto:           !join [*api, /log/example_%n.log]
+     log_maxsize:     100000
+     log_date:        '[%%Y:%%m:%%d %%H:%%M:%%S]'

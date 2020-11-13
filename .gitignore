@@ -19,3 +19,4 @@ data/**
 tmp/**
 pfe_multiprocess_tmp/*
 env_vars_w.ini
+config.yaml
