@@ -27,7 +27,7 @@ nohup_out_log:                 !join [*api, /log/nohup.out]
 env_vars:
      - prometheus_multiproc_dir
 
-# команда, lsof на конкретной машине, нужна для остановки сервиса без pid-файла
+# команда, lsof на конкретной машине, нужна для остановки сервиса без pid-файла(в service.py - только для получения статуса о порте)
 lsof_command: lsof
 
 DB_NAME: DB_NAME
@@ -39,6 +39,8 @@ SERVER_ADDRESS: localhost
 SERVER_PORT:    1234
 SERVICE_NAME:   example
 SERVICE_ID:     example-1
+local_ip:       &ip 0.0.0.0
+local_port:     &port 1234
 
 # настройки для relog
 # регулярное, выражение которое кодирует названия логов, обрабатываемые командой relog
@@ -66,7 +68,7 @@ uwsgi:
      module:          app
      callable:        app
      processes:       2
-     http:            0.0.0.0:1234
+     http:            !join [*ip, ':', *port]
      master:          true
      pidfile:         *pid
      max_requests:    5000

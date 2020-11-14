@@ -403,6 +403,23 @@ def is_port_open(ip, port, timeout=3):
     finally:
         s.close()
 
+def is_local_port_available(command, port):
+    """
+    Determine if local port is available for taking by process
+    Does so by executing "lsof -ti:%port", which is considered to be almost momentary
+    """
+    import subprocess
+    #TODO: refactor, handle errors.
+
+    lsof = subprocess.Popen([command, f'-ti:{port}'],
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    lsof_out = ''
+    for line in lsof.stdout:
+        lsof_out += line.decode("utf-8")
+    if lsof_out != '':
+        return False
+    else:
+        return True
 
 def connect_to_consul(consul_address, consul_port, logger):
     """

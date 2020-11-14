@@ -15,7 +15,7 @@ import datetime
 import textwrap
 import subprocess
 from argparse import ArgumentParser
-from service_manager_lib import MyLogger, proc_status, is_proc_status_fine, parse_config, cycle_with_limit
+from service_manager_lib import MyLogger, proc_status, is_proc_status_fine, parse_config, cycle_with_limit, is_local_port_available
 
 
 # todo все эти комменты надо будет удалить
@@ -276,8 +276,9 @@ def stop_service(consul_reg):
             Callback function to check if service has really been killed
             """
             res_loc.poll()
+            port_open = is_local_port_available(config['lsof_command'], config['local_port'])
 
-            if res_loc.returncode == 0:
+            if (res_loc.returncode == 0) and (port_open):
                 return [True, res_loc.returncode]
             else:
                 return [False, res_loc.returncode]
@@ -302,8 +303,6 @@ elif args.action == 'stop':
     stop_service(args.consul)
 
 elif args.action == 'restart':
-    # TODO restart работает через раз из-за занятого порта
-    #   как будто процес начинает потухать и мы начинаем считать его умершим слишком рано
     stop_service(args.consul)
     start_service(args.consul)
 
