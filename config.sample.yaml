@@ -19,9 +19,20 @@ env_directory:            &env !join [*api, /env]
 uwsgi_exec:                    !join [*env, /bin/uwsgi]
 env_python_exec:               !join [*env, /bin/python]
 pid_file:                 &pid !join [*api, /tmp/example_api-master.pid]
-prometheus_multiproc_dir:      !join [*api, /pfe_multiprocess_tmp]
+prometheus_multiproc_dir: &pmd !join [*api, /pfe_multiprocess_tmp]
 TMP_DIR:                  &tmp !join [*api, /tmp/]
 nohup_out_log:                 !join [*api, /log/nohup.out]
+
+# список директорий, которые будут созданы при очередном парсинге
+directories_to_create:
+     - *pmd
+     - *tmp
+     - !join [*api, /log/]
+
+# список путей (файлов и/или папок) которые будут удалены после очередной остановки сервиса
+paths_to_delete:
+     - *pid
+     - *pmd
 
 # параметры, которые будут определены в env-переменные при парсинге конфига
 env_vars:

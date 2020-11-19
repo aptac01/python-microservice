@@ -262,6 +262,7 @@ def parse_config(config_file, logger=False):
     import os
     import sys
     import yaml
+    from pathlib import Path
 
     # registering the custom tag handler
     yaml.add_constructor('!join', join)
@@ -290,12 +291,19 @@ def parse_config(config_file, logger=False):
             logger.log(str(exc))
             sys.exit(1)
 
+    # at this point config should be dictionary
+
     # sometimes env-variables are needed, so, we set them up from a list, dedicated to storing names of such vars
     if 'env_vars' in config:
         for var in config['env_vars']:
             os.environ[var] = config[var]
 
-    # at this point config should be dictionary
+    # create all needed directories
+    if 'directories_to_create' in config:
+        # logger.log('Creating directories...', color_front='dark gray')
+        for directory in config['directories_to_create']:
+            Path(directory).mkdir(parents=True, exist_ok=True)
+            # logger.log(f' ...{directory}', color_front='dark gray')
 
     return config
 
@@ -403,16 +411,17 @@ def is_port_open(ip, port, timeout=3):
     finally:
         s.close()
 
+
 def is_local_port_available(command, port):
     """
     Determine if local port is available for taking by process
     Does so by executing "lsof -ti:%port", which is considered to be almost momentary
     """
     import subprocess
-    #TODO: refactor, handle errors.
+    # TODO: refactor, handle errors.
 
     lsof = subprocess.Popen([command, f'-ti:{port}'],
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     lsof_out = ''
     for line in lsof.stdout:
         lsof_out += line.decode("utf-8")
@@ -420,6 +429,7 @@ def is_local_port_available(command, port):
         return False
     else:
         return True
+
 
 def connect_to_consul(consul_address, consul_port, logger):
     """
