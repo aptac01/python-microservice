@@ -8,6 +8,7 @@ Executable for managing service
 
 import os
 import sys
+import copy
 import base64
 import requests
 import argparse
@@ -182,23 +183,46 @@ else:
 #  не забудь перенести весь остальной функционал из service_manager2.sh
 
 
+def generate_uwsgi_yaml(config_section):
+    """
+    Generate yaml config file for uwsgi from service config
+    :param config_section - dict with all uwsgi vars
+    """
+    filename = config_section['config_file']
+    config_copy = copy.deepcopy(config_section)
+    del config_copy['config_file']
+    config_contents = 'uwsgi:\n'
+
+    for key, val in config_copy.items():
+        config_contents += f'    {key}: {val}\n'
+
+    if os.path.isfile(filename):
+        os.remove(filename)
+
+    actual_file = open(filename, 'w+', encoding='utf-8')
+    actual_file.write(config_contents)
+    nohup_logger.log('Re-generated uwsgi.yaml file...', color_front='dark gray')
+
+
 def start_service(consul_reg):
     """
     Start service in background (as a daemon)
     todo: %in progress%
         make protection from starting 2 master-uwsgi instances
-        write port service is running on
         register in consul
     """
 
     # to get rid of warning that param value is not used, gonna be fixed later
     str(consul_reg)
 
-    # starting proccess
+    generate_uwsgi_yaml(config['uwsgi'])
+
+    # starting uwsgi proccess
     res = subprocess.Popen(['nohup',
                             config["uwsgi_exec"],
-                            '--ini',
+                            '--yaml',
                             config["uwsgi"]["config_file"],
+                            # '--disable-logging',
                             ],
                            stdout=nohup_file,
                            stderr=nohup_file)
@@ -227,6 +251,7 @@ def start_service(consul_reg):
 
     if uwsgi_master_proc:
         nohup_logger.log(f'uWSGI master process is running, pid: {res.pid}', color_front='green')
+        nohup_logger.log(f'{config["local_ip"]}:{config["local_port"]}', color_front='green')
     else:
         nohup_logger.log(f'Something went wrong while running uWSGI master pid: {res.pid}, '
                          f'check {config["nohup_out_log"]} and {config["uwsgi"]["logto"]}', color_front='red')
@@ -243,14 +268,20 @@ def clean_up():
     """
     nohup_logger.log('Cleaning up...', color_front='dark gray')
 
-    for file in config['paths_to_delete']:
-        if os.path.isfile(file):
-            os.remove(file)
-            nohup_logger.log(f'           ...{file}', color_front='dark gray')
-        elif os.path.isdir(file):
-            # deleting directory contents
-            os.system(f'rm -rf {file}/*')
-            nohup_logger.log(f'           ...{file}', color_front='dark gray')
+    for path in config['paths_to_delete']:
+        if os.path.isfile(path):
+            try:
+                os.remove(path)
+                nohup_logger.log(f'           ...{path}', color_front='dark gray')
+            except Exception as e:
+                nohup_logger.log(f'           error: {e} when deleting {path}', color_front='red')
+        elif os.path.isdir(path):
+            try:
+                # deleting directory contents
+                os.system(f'rm -rf {path}/*')
+                nohup_logger.log(f'           ...{path}', color_front='dark gray')
+            except Exception as e:
+                nohup_logger.log(f'           error: {e} when deleting {path}', color_front='red')
 
 
 def kill_proccess_by_port():
@@ -276,7 +307,6 @@ def stop_service(consul_reg):
     """
     Stop running service
     todo: %in progress% разрегистрация из консула
-     рефактор is_local_port_available
     """
     str(consul_reg)
 
