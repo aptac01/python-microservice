@@ -72,6 +72,7 @@ nohup_logger.set_params(file=nohup_file, config=config)
 # nohup_logger.log(f'config file is at {config_filename}', color_front='yellow')
 # nohup_logger.log(f'{config["uwsgi"]}', color_front='green')
 
+# todo: вынести этот параметр в конфиг
 neat_script_name = 'service'
 
 # then, we validate user's input and decide what does he want
