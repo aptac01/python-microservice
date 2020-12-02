@@ -72,22 +72,27 @@ nohup_logger.set_params(file=nohup_file, config=config)
 # nohup_logger.log(f'config file is at {config_filename}', color_front='yellow')
 # nohup_logger.log(f'{config["uwsgi"]}', color_front='green')
 
-# then, we validate users input and decide what does he want
+neat_script_name = 'service'
+
+# then, we validate user's input and decide what does he want
 actions = [
-    ['start', '       starts the service via uwsgi'],
-    ['start_docker', 'used to start a service via uwsgi in a docker container. NOT TO BE USED BY ITSELF'],
-    ['stop', '        stops the service by the pid file, which is in the tmp folder'],
-    ['hardstop', '    kills the service on the port specified in the config'],
-    ['restart', '     performs stop, waits for the port to become free, and then start'],
-    ['status', '''      checks the current status of the service assuming the config did not change after launch, 
-                                           displays the current hash from the git'''],
-    ['tests', '       runs tests described in service_manager_lib.test_api'],
-    ['relog', '''       processes logs named in RELOG_FILES (as a regular expression).
+    ['start', '           starts the service via uwsgi'],
+    ['start_docker', '    used to start a service via uwsgi in a docker container. NOT TO BE USED BY ITSELF'],
+    ['stop', '            stops the service by the pid file, which is in the tmp folder'],
+    ['hardstop', '        kills the service on the port specified in the config'],
+    ['restart', '         performs stop, waits for the port to become free, and then start'],
+    ['status', '''          checks the current status of the service assuming the config did not change  
+                                           after launch, displays the current hash from the git'''],
+    ['tests', '           runs tests described in service_manager_lib.test_api'],
+    ['relog', '''           processes logs named in RELOG_FILES (as a regular expression).
                                            Performs actions described in  service_manager_lib.relog function
                                            Puts results in */relogs/:
                                                 exceptions.log      - uncaught exceptions
-                                                internal_errors.log - caught and are shown to the client as a result    
-    ''']
+                                                internal_errors.log - caught and are shown to the client as a result'''],
+    ['generate_ruffles', f'''generates neat shell script for usage instead of running this thing 
+                                           in python's virtual environment, a lot easier to remember.
+                                           Filename is:
+                                               {neat_script_name}''']
 ]
 actions_output = '\n'
 actions_keys = []
@@ -97,8 +102,8 @@ for action in actions:
 
 # noinspection PyTypeChecker
 # this will be the help message
-parser = ArgumentParser(prog=f'{__file__}',
-                        usage=f'<your_python_exec> {__file__}  -a <action> [-c (1|0)] [-r (1|0)] [-v]',
+parser = ArgumentParser(prog=f'{neat_script_name}',
+                        usage=f'./{neat_script_name}  -a <action> [-c (1|0)] [-r (1|0)] [-v]',
                         formatter_class=argparse.RawDescriptionHelpFormatter,
                         description=textwrap.dedent('''
                         The idea behind using this script is to keep it as simple as possible deploying and 
@@ -352,6 +357,15 @@ elif args.action == 'stop':
 elif args.action == 'restart':
     stop_service(args.consul)
     start_service(args.consul)
+
+elif args.action == 'generate_ruffles':
+    shell_script_file = open(neat_script_name, 'w+')
+    shell_script_file.write(f"""#!/bin/bash
+python_executable="{config["env_python_exec"]}"
+$python_executable service.py "$@"
+    """)
+    shell_script_file.close()
+    nohup_logger.log('Replaced service file...', color_front='dark gray')
 
 # changing current directory back
 os.chdir(current_working_directory)
