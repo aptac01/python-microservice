@@ -8,6 +8,8 @@ info:
     url: "https://t.me/aptac01"
     email: "popovalex402@gmail.com"
 servers:
+  - url: "http://0.0.0.0:1234/"
+    description: "instance at localhost, without docker"
   - url: "http://localhost:1234/"
     description: "instance of the service in docker container"
   - url: "http://192.168.1.40:1234/"

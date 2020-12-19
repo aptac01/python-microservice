@@ -72,7 +72,7 @@ COLOR_LOGS_FILES:   0
 # настроки, для конфига uwsgi
 # каждый параметр будет передан в конфиг uwsgi
 uwsgi:
-     config_file:     !join [*tmp, uwsgi.ini]
+     config_file:     !join [*tmp, uwsgi.yaml]
      chdir:           *api
      virtualenv:      *env
      pythonpath:      !join [*env, /bin]
@@ -83,7 +83,7 @@ uwsgi:
      master:          true
      pidfile:         *pid
      max_requests:    5000
-     disable_logging: true
+     disable-logging: true
      logto:           !join [*api, /log/example_%n.log]
      log_maxsize:     100000
      log_date:        '[%%Y:%%m:%%d %%H:%%M:%%S]'
