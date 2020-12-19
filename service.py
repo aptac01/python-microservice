@@ -42,7 +42,7 @@ from service_manager_lib import MyLogger, proc_status, is_proc_status_fine, pars
 
 # пока что единственный рабочий способ нормально запустить сервис в фоне:
 # os.system('ddd')
-# настраиваю dev окружение
+
 # я - дятел, можно было вот так - subprocess.Popen(['a', 'r', 'g', 's']) и немного подождать
 
 # ---------------------
