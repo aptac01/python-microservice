@@ -82,8 +82,8 @@ uwsgi:
      http:            !join [*ip, ':', *port]
      master:          true
      pidfile:         *pid
-     max_requests:    5000
+     max-requests:    5000
      disable-logging: true
      logto:           !join [*api, /log/example_%n.log]
-     log_maxsize:     100000
-     log_date:        '[%%Y:%%m:%%d %%H:%%M:%%S]'
+     log-maxsize:     100000
+     log-date:        '[%%Y:%%m:%%d %%H:%%M:%%S]'
