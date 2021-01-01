@@ -239,7 +239,8 @@ def main_packet_handler(var_route):
         # адрес пользователя
         ip1 = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
         
-        app.logger.info(f'{datetime_now.strftime("%Y-%m-%dT%H:%M:%S")}: remote address: {ip0} real IP: {ip1} method: {method_from_client}')
+        app.logger.info(f'{datetime_now.strftime("%Y-%m-%dT%H:%M:%S")}: remote address: {ip0} real IP: {ip1} '
+                        + 'method: {method_from_client}')
         
         if method_from_client == 'pingpong':
             
