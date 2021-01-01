@@ -16,7 +16,8 @@ import datetime
 import textwrap
 import subprocess
 from argparse import ArgumentParser
-from service_manager_lib import MyLogger, proc_status, is_proc_status_fine, parse_config, cycle_with_limit, is_local_port_available
+from service_manager_lib import MyLogger, proc_status, is_proc_status_fine, parse_config, cycle_with_limit, \
+    is_local_port_available
 
 
 # todo все эти комменты надо будет удалить
@@ -72,8 +73,7 @@ nohup_logger.set_params(file=nohup_file, config=config)
 # nohup_logger.log(f'config file is at {config_filename}', color_front='yellow')
 # nohup_logger.log(f'{config["uwsgi"]}', color_front='green')
 
-# todo: вынести этот параметр в конфиг
-neat_script_name = 'service'
+neat_script_name = config.get('neat_script_name', 'service')
 
 # then, we validate user's input and decide what does he want
 actions = [
@@ -89,7 +89,8 @@ actions = [
                                            Performs actions described in  service_manager_lib.relog function
                                            Puts results in */relogs/:
                                                 exceptions.log      - uncaught exceptions
-                                                internal_errors.log - caught and are shown to the client as a result'''],
+                                                internal_errors.log - caught and are shown to the client as a result'''
+     ],
     ['generate_ruffles', f'''generates neat shell script for usage instead of running this thing 
                                            in python's virtual environment, a lot easier to remember.
                                            Filename is:
@@ -297,7 +298,10 @@ def kill_proccess_by_port():
 
     nohup_logger.log(f'trying to kill proccess by port', color_front='light blue')
 
-    res = subprocess.run([config['lsof_command'], '-t', '-i', f'tcp:{config["SERVER_PORT"]}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    res = subprocess.run([
+        config['lsof_command'],
+        '-t', '-i', f'tcp:{config["SERVER_PORT"]}'
+    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     if res.stdout == b'':
         nohup_logger.log(f'No service found on tcp:{config["SERVER_PORT"]}!', color_front='red')
@@ -340,7 +344,8 @@ def stop_service(consul_reg):
         if res_returncode == 0:
             nohup_logger.log('service stopped successfully', color_front='green')
         else:
-            nohup_logger.log(f'something went wrong while stopping service, check {config["nohup_out_log"]}', color_front='red')
+            nohup_logger.log(f'something went wrong while stopping service, check {config["nohup_out_log"]}',
+                             color_front='red')
             kill_proccess_by_port()
     else:
         nohup_logger.log('did not find pid file', color_front='yellow')
@@ -366,7 +371,8 @@ python_executable="{config["env_python_exec"]}"
 $python_executable service.py "$@"
     """)
     shell_script_file.close()
-    nohup_logger.log('Replaced service file...', color_front='dark gray')
+    nohup_logger.log(f'Replaced service file ({neat_script_name})...', color_front='dark gray')
+    nohup_logger.log(f'Don\'t forget to remove old file (if needed)', color_front='dark gray')
 
 # changing current directory back
 os.chdir(current_working_directory)

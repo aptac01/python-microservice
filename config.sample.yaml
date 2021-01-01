@@ -23,6 +23,9 @@ prometheus_multiproc_dir: &pmd !join [*api, /pfe_multiprocess_tmp]
 TMP_DIR:                  &tmp !join [*api, /tmp/]
 nohup_out_log:                 !join [*api, /log/nohup.out]
 
+# имя для файла-скрипта для удобной работы в cli (generate_ruffles), по умолчанию - service
+#neat_script_name:              service
+
 # список директорий, которые будут созданы при очередном парсинге
 directories_to_create:
      - *pmd
@@ -38,7 +41,7 @@ paths_to_delete:
 env_vars:
      - prometheus_multiproc_dir
 
-# команда, lsof на конкретной машине, нужна для остановки сервиса без pid-файла(в service.py - только для получения статуса о порте)
+# команда, lsof на конкретной машине, нужна для остановки сервиса без pid-файла
 lsof_command: lsof
 
 DB_NAME: DB_NAME
