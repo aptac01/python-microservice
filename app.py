@@ -25,18 +25,12 @@ from service_manager_lib import get_prometheus_metric_labels, method, parse_conf
 app = Flask(__name__)
 
 # --------------- app config ---------------
-if 'APP_SETTINGS' in os.environ:
-    # указание конфига для скрипта service_manager2.sh
-    app.config.from_object(os.environ['APP_SETTINGS'])
-    CONSUL_NAME = app.config['CONSUL_NAME']
-else:
-    # указание конфига для service.py
-    cnfg = os.path.dirname(os.path.abspath(__file__))
-    config_filename = f'{cnfg}/config.yaml'
-    config = parse_config(config_filename)
-    app.config.update(config)
+cnfg = os.path.dirname(os.path.abspath(__file__))
+config_filename = f'{cnfg}/config.yaml'
+config = parse_config(config_filename)
+app.config.update(config)
 
-    CONSUL_NAME = app.config['SERVICE_NAME']
+CONSUL_NAME = app.config['SERVICE_NAME']
 
 # --------------- basic auth ---------------
 auth = HTTPBasicAuth()
