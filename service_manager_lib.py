@@ -80,6 +80,7 @@ class MyLogger:
         if 'file' in kwargs:
             self.file = kwargs['file']
 
+        # showing file warning later only if path was explicitly given
         if 'show_file_warning' in kwargs:
             self.show_file_warning = kwargs['show_file_warning']
         elif self.file is not None:

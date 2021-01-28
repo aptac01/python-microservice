@@ -19,37 +19,8 @@ from argparse import ArgumentParser
 from service_manager_lib import MyLogger, proc_status, is_proc_status_fine, parse_config, cycle_with_limit, \
     is_local_port_available
 
-
-# todo все эти комменты надо будет удалить
-# вся вот эта хрень будет скрыта от пользователя, если все проходит штатно
-# ---------------------
-# таким макаром запускаем что-то и ждем пока оно выполнится
-# если cd задать неправильный путь для перехода - subprocess.run выкидывает exception (т.е. его надо ловить)
-# если подпроцесс завершился сам - exception (если он был) не выкидывается.
-# про другие такие команды не знаю, надо тестить
-#   возможно, выкидываются исключения от операционной системы или интерпретатора (bash и т.п.)
-# result = subprocess.run(['kill', '-h'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
-#
-# # nohup_logger.log(f'{result.stdout.decode("utf8")}')
-# if result.returncode != 0:
-#     nohup_logger.log(f'The exit code is {result.returncode}')
-# if result.stderr not in (None, '', 0, b''):
-#     nohup_logger.log(f'This is what happened: {result.stderr.decode("utf8")}')
-
-# nohup_logger.log('daemonizing kill -h')
-# таким макаром запускаем и не ждем пока оно выполнится
-# оно умирает по завершению родительского скрипта (т.е. вот этого)
-# subprocess.run(['kill', '-h'], stdout=None, stderr=None, check=False)
-
-# пока что единственный рабочий способ нормально запустить сервис в фоне:
-# os.system('ddd')
-#
-# я - дятел, можно было вот так - subprocess.Popen(['a', 'r', 'g', 's']) и немного подождать
-
-# ---------------------
-
 # ----------------------------------------------------
-# https://docs.python.org/3.8/library/argparse.html#action - argparse documentation
+# https://docs.python.org/3.8/library/argparse.html#action - argparse docs
 
 # first, we are trying to parse config and initialize logger to only print messages on screen
 
@@ -59,23 +30,18 @@ nohup_logger = MyLogger()
 config = parse_config(config_filename, nohup_logger)
 
 # trying to open nohup.out file and if it opens - write logs to it
-# in that case, no file - no big deal
+# no file - not a big deal
 try:
     nohup_file = open(config['nohup_out_log'], 'a+')
-except FileNotFoundError:
-    nohup_file = config['nohup_out_log']
-except OSError:
+except (FileNotFoundError, OSError):
     nohup_file = config['nohup_out_log']
 
 nohup_logger.set_params(file=nohup_file, config=config)
 
-# nohup_logger.log(f'running from :{cnfg}', color_front='yellow')
-# nohup_logger.log(f'config file is at {config_filename}', color_front='yellow')
-# nohup_logger.log(f'{config["uwsgi"]}', color_front='green')
-
 neat_script_name = config.get('neat_script_name', 'service')
 
 # then, we validate user's input and decide what does he want
+# spaces in strings are important in this section
 actions = [
     ['start', '           starts the service via uwsgi'],
     ['start_docker', '    used to start a service via uwsgi in a docker container. NOT TO BE USED BY ITSELF'],
@@ -161,8 +127,15 @@ args = parser.parse_args()
 # nohup_logger.log(f'action argument is:{args.action}')
 # nohup_logger.log(f'consul argument is:{args.consul}')
 # nohup_logger.log(f'relog argument is:{args.relog}')
-# if args.trap is True:
-#     nohup_logger.log(f'IT\'S A TRAP!!')
+
+if args.trap is True:
+    nohup_logger.log(f'IT\'S A TRAP!!')
+    import gzip, base64
+    # todo сделать картинку с маленьким Акбаром
+    exec(gzip.decompress(base64.b64decode(b'H4sIAFolE2AC/02OzQrDIBCE7/sUkosKqaQhhFLok5QeTFxTIVExBkJL373mj3ZPs8s3s2MG70I'
+                                          b'k3ct4MJtu5Ih1dWwBAaQkN9I6q013p3NJHwJt6xQyOkV9ulAOoFATheuxqSt+BZJmskmjSuYtU6'
+                                          b'T1D9qZ5bdfqUWJBRh8wHFku38DA8Yp2B8v9qRs7ZBxSJaUEVBoY5Xse0bF+5yXRfGh+dFNSs5Bu'
+                                          b'0BQtk9ibMLHrasPxka2nDngbCIrOHwB5eh0Ax0BAAA=')))
 
 nohup_logger.log('----------------- Service managing operation start -----------------')
 
@@ -187,7 +160,17 @@ else:
                      f'\n---\n{result.stdout}\n===', color_front='red')
 
 # todo:
-#  не забудь перенести весь остальной функционал из service_manager2.sh
+#  не забудь перенести весь остальной функционал из service_manager2.sh, а именно:
+#   * регистрацию в consul
+#   * hardstop
+#   * запуск в docker'е
+#     запускать uwsgi в docker'е нужно так:
+#     uwsgi --ini "${uwsgi_config_file}"
+#   * status
+#   * тестилку
+#   * relog
+#   * просто удаление старых логов
+#
 
 
 def generate_uwsgi_yaml(config_section):
@@ -217,6 +200,7 @@ def start_service(consul_reg):
     todo: %in progress%
         make protection from starting 2 master-uwsgi instances
         register in consul
+        check for something else already running on our port
     """
 
     # to get rid of warning that param value is not used, gonna be fixed later
@@ -225,14 +209,16 @@ def start_service(consul_reg):
     generate_uwsgi_yaml(config['uwsgi'])
 
     # starting uwsgi proccess
-    res = subprocess.Popen(['nohup',
-                            config["uwsgi_exec"],
-                            '--yaml',
-                            config["uwsgi"]["config_file"],
-                            # '--disable-logging',
-                            ],
-                           stdout=nohup_file,
-                           stderr=nohup_file)
+    nohup_res = subprocess.Popen([
+            'nohup',
+            config["uwsgi_exec"],
+            '--yaml',
+            config["uwsgi"]["config_file"],
+            # '--disable-logging',
+        ],
+        stdout=nohup_file,
+        stderr=nohup_file
+    )
 
     nohup_logger.log('waiting a bit to see if service is working or not...', color_front='dark gray')
 
@@ -252,15 +238,15 @@ def start_service(consul_reg):
         else:
             return [False, uwsgi_master_proc_int, ping_endpoint_int]
 
-    flags_after_action = cycle_with_limit(check_service_started, res, 0.3, 3)
+    flags_after_action = cycle_with_limit(check_service_started, nohup_res, 0.3, 3)
     uwsgi_master_proc = flags_after_action[1]
     ping_endpoint = flags_after_action[2]
 
     if uwsgi_master_proc:
-        nohup_logger.log(f'uWSGI master process is running, pid: {res.pid}', color_front='green')
+        nohup_logger.log(f'uWSGI master process is running, pid: {nohup_res.pid}', color_front='green')
         nohup_logger.log(f'{config["local_ip"]}:{config["local_port"]}', color_front='green')
     else:
-        nohup_logger.log(f'Something went wrong while running uWSGI master pid: {res.pid}, '
+        nohup_logger.log(f'Something went wrong while running uWSGI master pid: {nohup_res.pid}, '
                          f'check {config["nohup_out_log"]} and {config["uwsgi"]["logto"]}', color_front='red')
     if ping_endpoint:
         nohup_logger.log(f'/ping endpoint is ok, service should be alive', color_front='green')
@@ -298,15 +284,15 @@ def kill_proccess_by_port():
 
     nohup_logger.log(f'trying to kill proccess by port', color_front='light blue')
 
-    res = subprocess.run([
+    lsof_res = subprocess.run([
         config['lsof_command'],
         '-t', '-i', f'tcp:{config["SERVER_PORT"]}'
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    if res.stdout == b'':
+    if lsof_res.stdout == b'':
         nohup_logger.log(f'No service found on tcp:{config["SERVER_PORT"]}!', color_front='red')
     else:
-        pids = res.stdout.split(b'\n')
+        pids = lsof_res.stdout.split(b'\n')
         subprocess.run(['kill', '-9', pids[0]], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         nohup_logger.log(f'killed proccess with pid {pids[0].decode("utf8")} '
@@ -321,8 +307,8 @@ def stop_service(consul_reg):
     str(consul_reg)
 
     if os.path.exists(config['pid_file']):
-        res = subprocess.Popen([config["uwsgi_exec"], '--stop', config['pid_file']],
-                               stdout=nohup_file, stderr=nohup_file)
+        uwsgi_stop_res = subprocess.Popen([config["uwsgi_exec"], '--stop', config['pid_file']],
+                                          stdout=nohup_file, stderr=nohup_file)
 
         nohup_logger.log('waiting for service to be killed...', color_front='dark gray')
 
@@ -338,7 +324,7 @@ def stop_service(consul_reg):
             else:
                 return [False, res_loc.returncode]
 
-        flags_after_action = cycle_with_limit(check_service_killed, res, 0.2, 5)
+        flags_after_action = cycle_with_limit(check_service_killed, uwsgi_stop_res, 0.2, 5)
         res_returncode = flags_after_action[1]
 
         if res_returncode == 0:

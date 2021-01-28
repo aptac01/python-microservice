@@ -9,6 +9,7 @@ JSON_AS_ASCII: false
 SECRET_KEY:    d17c571102250cec991fb6393e417d767cdee3ca537cf43a
 # testing
 x: 22.5
+x2: 'H4sIAJIfE2AC/62QOxIDMQhDe59C5briQp7RRTh8LD72bNKGAsY8EGCAsvSKqMTLDv1GlSAGXIAenHwwLahHna0ITV0O66JKOHzEK7oiuDmeM9VQXU0lOaM80Un8CG1b7KmmseslpNPtotiIlkL0PK+FdFhMzRtLqTdCSDfqHej6o/oSZyVle6rJacFVteV24qLseTgH/mTjA4MUMu3/AQAA'
 
 # всё, что дальше - уникально для каждого приложения
 
